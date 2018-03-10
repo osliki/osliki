@@ -1,0 +1,13 @@
+{
+  "package_name": "osliki",
+  "version": "1.0.0",
+  "description": "Osliki - Decentralized Package Delivery Platform",
+  "authors": [
+    "Artod <gartod@gmail.com>"
+  ],
+  "keywords": [
+    "osliki",
+    "delivery"
+  ],
+  "license": ""
+}

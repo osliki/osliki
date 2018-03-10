@@ -1,4 +1,5 @@
-pragma solidity ^0.4.20;
+pragma solidity ^0.4.21;
+pragma experimental ABIEncoderV2;
 
 contract Osliki {
 
@@ -6,38 +7,22 @@ contract Osliki {
     Offer[] public offers;
     Invoice[] public invoices;
 
+    enum EnumOrderStatus { New, Process, Fulfilled }
+    enum EnumInvoiceStatus { New, Prepaid, Paid }
+
+    event NewOrder(uint orderId);
+    event NewOffer(uint offerId, uint orderId);
+    event NewInvoice(uint invoiceId);
+
     function Osliki() public {
-        /*invoices[0] = Invoice({
-            carrier: 0x0,
-            orderId: 0,
-            prepayment: 0,
-            deposit: 0,
-            depositHash: '',
-            status: EnumInvoiceStatus.New
-        });*/
-    }
 
-    /*struct Location {
-        string lat;
-        string lon;
-        address addr;
     }
-
-    struct CargoParams {
-        uint weight;
-        uint height;
-        uint width;
-        uint long;
-        uint count;
-    }*/
 
     struct Offer {
         address carrier;
         uint orderId;
         string message;
     }
-
-    enum EnumOrderStatus { New, Process, Fulfilled }
 
     struct Order {
        address customer;
@@ -49,7 +34,6 @@ contract Osliki {
 
         uint[] offerIds;
 
-        //Invoice[] invoices;
         address carrier;
         uint invoiceId;
 
@@ -57,8 +41,6 @@ contract Osliki {
         uint256 createdAt;
         uint256 updatedAt;
     }
-
-    enum EnumInvoiceStatus { New, Prepaid, Paid }
 
     struct Invoice {
         address carrier;
@@ -69,8 +51,6 @@ contract Osliki {
         EnumInvoiceStatus status;
     }
 
-    event NewOrder(uint);
-
     /*  params[0] - weight (kg)
         params[1] - lenght (m)
         params[2] - width (m)
@@ -80,7 +60,7 @@ contract Osliki {
         string to,
         uint[4] params,
         string message
-    ) public returns (uint orderId) {
+    ) public {
         orders.push(Order({
             customer: msg.sender,
 
@@ -99,33 +79,40 @@ contract Osliki {
             updatedAt: block.number
         }));
 
-        orderId = orders.length - 1;
+        uint orderId = orders.length -1;
 
         emit NewOrder(orderId);
     }
 
-    event NewOffer(uint, uint);
-
     function addOffer(
         uint orderId,
         string message
-    ) public returns (uint offerId) {
+    ) public {
         offers.push(Offer({
             carrier: msg.sender,
             orderId: orderId,
             message: message
         }));
 
-        offerId = offers.length - 1;
+        uint offerId = offers.length - 1;
 
         orders[orderId].offerIds.push(offerId);
         orders[orderId].updatedAt = block.number;
 
-        emit NewOffer(orderId, offerId);
+        emit NewOffer(offerId, orderId);
     }
 
-    function getOrderOffers(uint orderId) public view returns (uint[]) {
+    function getOrderOffers(uint orderId) public view returns (uint) {
+        //uint[] memory orderOfferIds = orders[orderId].offerIds;
+/*Offer[] memory orderOffers;
+        for (uint i = 0; i < orderOfferIds.length; ++i) {
+            orderOffers[i] = offers[orderOfferIds[i]];
+        }*/
+
+        //return orderOffers[0];
+        return orders[orderId].offerIds[1];
+    }
+    /*function getOrderOffers(uint orderId) public view returns (uint[]) {
         return orders[orderId].offerIds;
-    }
-
+    }*/
 }
