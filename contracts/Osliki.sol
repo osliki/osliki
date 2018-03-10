@@ -113,8 +113,4 @@ contract Osliki {
     function getInvoicesCount() public view returns (uint) {
         return invoices.length;
     }
-
-    /*function getOrderOffers(uint orderId) public view returns (uint[]) {
-        return orders[orderId].offerIds;
-    }*/
 }
