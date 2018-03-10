@@ -1,10 +1,9 @@
 const BigNumber = require('bignumber.js');
 
-const Osliki = artifacts.require("./Osliki.sol")
+const Osliki = artifacts.require('./Osliki.sol')
 
 const allBigNumberToNumber = (arr) => {
-  return arr.map(el => {
-    return (el.toNumber ? el.toNumber() : el)})
+  return arr.map(el => (el.toNumber ? el.toNumber() : el))
 }
 
 contract('Osliki', accounts => {
@@ -12,15 +11,20 @@ contract('Osliki', accounts => {
 
   const mockOrders = [
     ['frommm', 'tooo', '1,2,3,4', 1520707441279, 'My message'],
-    ['frommm1', 'tooo1', '5,6,7,8', 1520707441299, 'My message1']
+    ['frommm1', 'tooo1', '5,6,7,8', 1520707441299, 'My message1'],
   ]
 
   const mockOffers = [
     [1, 'My offer message'],
-    [1, 'My offer message 1']
+    [1, 'My offer message 1'],
   ]
 
-  it("should add an order", async () => {
+  const mockInvoices = [
+    [1, web3.toWei(1, 'ether'), web3.toWei(1, 'ether'), 'ETH'],
+    [1, web3.toWei(1, 'ether'), web3.toWei(1, 'ether'), 'OSLIK'],
+  ]
+
+  it("should add a new order", async () => {
     instance = await Osliki.deployed()
 
     const res0 = await instance.addOrder(...mockOrders[0], {from: accounts[0]})
@@ -30,18 +34,49 @@ contract('Osliki', accounts => {
     assert.equal(res1.logs[0].args.orderId.toNumber(), 1, "orderId1 wasn't 1")
   })
 
-  it("should add an offer", async () => {
+  it("should add a new offer", async () => {
     const res0 = await instance.addOffer(...mockOffers[0], {from: accounts[3]})
     const res1 = await instance.addOffer(...mockOffers[1], {from: accounts[4]})
 
     assert.equal(res0.logs[0].args.offerId.toNumber(), 0, "offerId wasn't 0")
+    assert.equal(res0.logs[0].args.orderId.toNumber(), 1, "orderId wasn't 0")
+
+    assert.equal(res1.logs[0].args.offerId.toNumber(), 1, "offerId wasn't 1")
     assert.equal(res1.logs[0].args.orderId.toNumber(), 1, "orderId wasn't 1")
+  })
+
+  it("should add a new invoice", async () => {
+    const res0 = await instance.invoice(...mockInvoices[0], {from: accounts[3]})
+    const res1 = await instance.invoice(...mockInvoices[1], {from: accounts[4]})
+
+    assert.equal(res0.logs[0].args.invoiceId.toNumber(), 0, "invoiceId wasn't 0")
+    assert.equal(res0.logs[0].args.orderId.toNumber(), 1, "orderId wasn't 0")
+
+    assert.equal(res1.logs[0].args.invoiceId.toNumber(), 1, "invoiceId wasn't 1")
+    assert.equal(res1.logs[0].args.orderId.toNumber(), 1, "orderId wasn't 1")
+  })
+
+  it("should get invoice by id", async () => {
+    let invoice = await instance.invoices(1)
+
+    invoice = allBigNumberToNumber(invoice)
+    invoice[2] = invoice[2].toString()
+    invoice[3] = invoice[3].toString()
+
+    assert.deepEqual(invoice, [
+        accounts[4],
+        ...mockInvoices[1],
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
+        0
+    ], "got wrong invoice")
   })
 
   it("should get order by id", async () => {
     let order = await instance.orders(1)
+
     order = allBigNumberToNumber(order)
     order.splice(9)
+
     assert.deepEqual(order, [
       accounts[1],
       ...mockOrders[1],
@@ -52,10 +87,14 @@ contract('Osliki', accounts => {
   })
 
   it("should get offer by id", async () => {
-    let offer = await instance.offers(1);
-    offer[1] = offer[1].toNumber()
+    let offer = await instance.offers(1)
+
+    offer = allBigNumberToNumber(offer)
+
     assert.deepEqual(offer, [accounts[4], ...mockOffers[1]], "got wrong offer")
   })
+
+
 
   it("should get count of orders", async () => {
     const count = await instance.getOrdersCount()
@@ -74,6 +113,6 @@ contract('Osliki', accounts => {
 
   it("should get count of invoices", async () => {
     const count = await instance.getInvoicesCount()
-    assert.equal(count.toNumber(), 0, "count of orders wasn't 0")
+    assert.equal(count.toNumber(), 2, "count of invoices wasn't 1")
   })
 })

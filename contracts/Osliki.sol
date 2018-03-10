@@ -3,7 +3,16 @@ pragma solidity ^0.4.21;
 
 contract Osliki {
     function Osliki() public {
-
+      /*// plug for invoices[0]
+      invoices.push(Invoice({
+          carrier: address(this),
+          orderId: 0,
+          prepayment: 0,
+          deposit: 0,
+          currency: 'eth',
+          depositHash: new bytes32(),
+          status: EnumInvoiceStatus.New
+      }));*/
     }
 
     Order[] public orders;
@@ -15,7 +24,7 @@ contract Osliki {
 
     event NewOrder(uint orderId);
     event NewOffer(uint offerId, uint orderId);
-    event NewInvoice(uint invoiceId);
+    event NewInvoice(uint invoiceId, uint orderId);
 
     struct Order {
         address customer;
@@ -46,6 +55,7 @@ contract Osliki {
         uint orderId;
         uint prepayment;
         uint deposit;
+        string currency;
         bytes32 depositHash;
         EnumInvoiceStatus status;
     }
@@ -58,21 +68,21 @@ contract Osliki {
         string message
     ) public {
         orders.push(Order({
-            customer: msg.sender,
-            from: from,
-            to: to,
-            params: params,
-            date: date,
-            message: message,
+          customer: msg.sender,
+          from: from,
+          to: to,
+          params: params,
+          date: date,
+          message: message,
 
-            offerIds: new uint[](0),
+          offerIds: new uint[](0),
 
-            carrier: 0x0,
-            invoiceId: 0,
+          carrier: 0x0,
+          invoiceId: 0,
 
-            status: EnumOrderStatus.New,
-            createdAt: block.number,
-            updatedAt: block.number
+          status: EnumOrderStatus.New,
+          createdAt: block.number,
+          updatedAt: block.number
         }));
 
         uint orderId = orders.length -1;
@@ -98,6 +108,39 @@ contract Osliki {
         emit NewOffer(offerId, orderId);
     }
 
+    /* @ToDo: check possible issues with invoices[0] */
+    function invoice(uint orderId, uint prepayment, uint deposit, string currency) public {
+      invoices.push(Invoice({
+          carrier: msg.sender,
+          orderId: orderId,
+          prepayment: prepayment,
+          deposit: deposit,
+          currency: currency,
+          depositHash: '',
+          status: EnumInvoiceStatus.New
+      }));
+
+      uint invoiceId = invoices.length - 1;
+
+      emit NewInvoice(invoiceId, orderId);
+    }
+/*
+    function pay(uint orderId, uint prepayment, uint deposit, bytes32 depositHash) payable {
+      invoices.push(Invoice({
+          carrier: msg.sender,
+          orderId: orderId,
+          prepayment: prepayment,
+          deposit: deposit,
+          depositHash: depositHash,
+          status: EnumInvoiceStatus.New
+      }));
+
+      uint invoiceId = invoices.length - 1;
+
+      emit NewInvoice(invoiceId, orderId)
+    }
+
+address.transfer(amountEther)*/
     function getOrdersCount() public view returns (uint) {
         return orders.length;
     }
