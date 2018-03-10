@@ -1,7 +1,10 @@
 pragma solidity ^0.4.21;
-pragma experimental ABIEncoderV2;
+//pragma experimental ABIEncoderV2;
 
 contract Osliki {
+    function Osliki() public {
+
+    }
 
     Order[] public orders;
     Offer[] public offers;
@@ -14,22 +17,12 @@ contract Osliki {
     event NewOffer(uint offerId, uint orderId);
     event NewInvoice(uint invoiceId);
 
-    function Osliki() public {
-
-    }
-
-    struct Offer {
-        address carrier;
-        uint orderId;
-        string message;
-    }
-
     struct Order {
-       address customer;
-
+        address customer;
         string from;
         string to;
-        uint[4] params;
+        string params;
+        uint date;
         string message;
 
         uint[] offerIds;
@@ -42,6 +35,12 @@ contract Osliki {
         uint256 updatedAt;
     }
 
+    struct Offer {
+        address carrier;
+        uint orderId;
+        string message;
+    }
+
     struct Invoice {
         address carrier;
         uint orderId;
@@ -51,22 +50,19 @@ contract Osliki {
         EnumInvoiceStatus status;
     }
 
-    /*  params[0] - weight (kg)
-        params[1] - lenght (m)
-        params[2] - width (m)
-        params[3] - height (m)    */
     function addOrder(
-        string from,
+        string from, // geo coord 'lat,lon' or Ethereum address '0x...'
         string to,
-        uint[4] params,
+        string params,  // format 'weight(kg),length(m),width(m),height(m)'
+        uint date,
         string message
     ) public {
         orders.push(Order({
             customer: msg.sender,
-
             from: from,
             to: to,
             params: params,
+            date: date,
             message: message,
 
             offerIds: new uint[](0),
@@ -102,16 +98,22 @@ contract Osliki {
         emit NewOffer(offerId, orderId);
     }
 
-    function getOrderOffers(uint orderId) public view returns (uint) {
-        //uint[] memory orderOfferIds = orders[orderId].offerIds;
-/*Offer[] memory orderOffers;
-        for (uint i = 0; i < orderOfferIds.length; ++i) {
-            orderOffers[i] = offers[orderOfferIds[i]];
-        }*/
-
-        //return orderOffers[0];
-        return orders[orderId].offerIds[1];
+    function getOrdersCount() public view returns (uint) {
+        return orders.length;
     }
+
+    function getOffersCount() public view returns (uint) {
+        return offers.length;
+    }
+
+    function getOrderOffersCount(uint orderId) public view returns (uint) {
+        return orders[orderId].offerIds.length;
+    }
+
+    function getInvoicesCount() public view returns (uint) {
+        return invoices.length;
+    }
+
     /*function getOrderOffers(uint orderId) public view returns (uint[]) {
         return orders[orderId].offerIds;
     }*/

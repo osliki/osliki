@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/osliki-foundation/osliki#readme",
   "dependencies": {
+    "bignumber.js": "^6.0.0",
     "zeppelin-solidity": "^1.7.0"
   }
 }
