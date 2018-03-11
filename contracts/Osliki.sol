@@ -149,11 +149,12 @@ contract Osliki {
     uint deposit,
     bytes32 depositHash
   ) public payable {
-    Invoice memory invoice = invoices[invoiceId];
+    Invoice storage invoice = invoices[invoiceId];
     Order memory order = orders[invoice.orderId];
 
     uint amount = prepayment.add(deposit);
 
+    require(amount != 0); // can't pay for someone else's orders
     require(order.customer == msg.sender); // can't pay for someone else's orders
     require(order.status == EnumOrderStatus.New); // can't pay already processed orders
     require(invoice.status == EnumInvoiceStatus.New); // can't pay already paid invoices
@@ -164,16 +165,24 @@ contract Osliki {
       require(msg.value != amount); // not enough funds
 
       if (prepayment != 0) {
-        invoice.carrier.transfer(prepayment);
         invoice.status = EnumInvoiceStatus.Prepaid;
         emit PrePayment(invoiceId);
+
+        invoice.carrier.transfer(prepayment);
       }
     }
 
     if (invoice.currency == EnumCurrency.OSLIK) {
       require(msg.value != 0); // prevent loss of ETH
+      require(oslikToken.allowance(msg.sender, this) >= amount); // check allowance
 
+      if (prepayment != 0) {
+        invoice.status = EnumInvoiceStatus.Prepaid;
+        order.status = EnumOrderStatus.Process;
+        emit PrePayment(invoiceId);
 
+        oslikToken.transferFrom(msg.sender, invoice.carrier, prepayment);
+      }
     }
   }
 
