@@ -1,5 +1,5 @@
 pragma solidity ^0.4.21;
-//pragma experimental ABIEncoderV2;
+
 import '../node_modules/zeppelin-solidity/contracts/math/SafeMath.sol';
 import '../node_modules/zeppelin-solidity/contracts/token/ERC20/ERC20.sol';
 import '../node_modules/zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol';
@@ -7,7 +7,6 @@ import '../node_modules/zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol';
 /*@ToDo:
 check check the sequence of event calls
 rational
-
 */
 contract Osliki {
   using SafeMath for uint;
@@ -33,7 +32,7 @@ contract Osliki {
   event EventDeposit(uint invoiceId);
 
   function Osliki(ERC20 _oslikToken, address _oslikiFoundation) public {
-    require(address(_oslikToken) != 0x0 && _oslikiFoundation != 0x0);
+    //require(address(_oslikToken) != 0x0 && _oslikiFoundation != 0x0);
 
     oslikToken = _oslikToken;
     oslikiFoundation = _oslikiFoundation;
@@ -194,7 +193,6 @@ contract Osliki {
 
         uint fee = getFee(prepayment);
         fees = fees.add(fee);
-
         invoice.carrier.transfer(prepayment.sub(fee));
       }
 

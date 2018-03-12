@@ -2,10 +2,9 @@ pragma solidity ^0.4.21;
 
 import '../node_modules/zeppelin-solidity/contracts/token/ERC20/StandardToken.sol';
 
-
 /**
  * @title OslikToken
- * @dev ERC20 Token example, where all tokens are pre-assigned to the creator.
+ * @dev ERC20 Token, where all tokens are pre-assigned to the creator.
  * Note they can later distribute these tokens as they wish using `transfer` and other
  * `StandardToken` functions.
  */
@@ -15,7 +14,7 @@ contract OslikToken is StandardToken {
   string public constant symbol = 'OSLIK'; // solium-disable-line uppercase
   uint8 public constant decimals = 18; // solium-disable-line uppercase
 
-  uint256 public constant INITIAL_SUPPLY = 10000 * (10 ** uint256(decimals));
+  uint public constant INITIAL_SUPPLY = 10000 * (10 ** uint(decimals));
 
   /**
    * @dev Constructor that gives msg.sender all of existing tokens.

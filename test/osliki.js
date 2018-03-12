@@ -1,4 +1,4 @@
-const BigNumber = require('bignumber.js');
+//const BigNumber = require('bignumber.js');
 
 const Osliki = artifacts.require('./Osliki.sol')
 
@@ -27,7 +27,14 @@ const mockInvoices = [
 ]
 
 
-
+/*
+Osliki.deployed().then((res) => {
+  //res.oslikToken().then((res) =>{ console.log('dsdsd'); console.dir(res)}).catch((err)=>console.dir(err))
+  res.oslikiFoundation().then((res) => { console.log('dsdsd'); console.dir(res)}).catch((err)=>console.dir(err))
+//console.dir(res)
+//console.log(res.oslikToken())
+});
+*/
 contract('Osliki', accounts => {
   let instance;
 
