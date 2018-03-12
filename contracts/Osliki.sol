@@ -180,8 +180,6 @@ contract Osliki {
       invoice.status == EnumInvoiceStatus.New // can't pay already paid invoices
     );
 
-
-
     if (invoice.currency == EnumCurrency.ETH) {
       require(msg.value == amount); // not enough or too much funds
 
