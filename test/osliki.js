@@ -82,6 +82,10 @@ contract('Osliki', accounts => {
     assert.equal(res1.logs[0].args.orderId.toNumber(), 1, "orderId wasn't 1")
   })
 
+
+
+
+
   it("should fail ETH payment from another customer", async () => {
     const invoiceId = 2 //2 = mockInvoices[1]
 
@@ -107,7 +111,14 @@ contract('Osliki', accounts => {
 
     const fees = await instance.fees()
 
-    assert.equal(res.logs[0].args.invoiceId.toNumber(), invoiceId, "invoiceId wasn't " + invoiceId)
+    assert.equal(res.logs[0].event + res.logs[0].args.invoiceId.toNumber(),
+      'EventPrePayment' + invoiceId,
+      "EventPrePayment invoiceId wasn't " + invoiceId)
+
+    assert.equal(res.logs[1].event + res.logs[1].args.invoiceId.toNumber(),
+      'EventDeposit' + invoiceId,
+      "EventDeposit invoiceId wasn't " + invoiceId)
+      
     assert.equal(fees.toString(), web3.toWei(0.003, 'ether'), "wrong amount of fee")
   })
 
