@@ -30,10 +30,10 @@ contract Osliki {
   event EventNewInvoice(uint invoiceId, uint orderId);
   event EventPayment(uint invoiceId);
 
-  event EventLog(uint fist, uint sec, uint thrd);
+  event EventLog(uint fist, uint sec, address thrd, address asa);
 
   function Osliki(ERC20 _oslikToken, address _oslikiFoundation) public {
-    //require(address(_oslikToken) != 0x0 && _oslikiFoundation != 0x0);
+    require(address(_oslikToken) != address(0) && _oslikiFoundation != address(0));
 
     oslikToken = _oslikToken;
     oslikiFoundation = _oslikiFoundation;
@@ -174,6 +174,7 @@ contract Osliki {
     uint prepayment = invoice.prepayment;
     uint deposit = invoice.deposit;
     uint amount = prepayment.add(deposit);
+    address addressThis = address(this);
 
     require(//amount != 0 &&
       order.customer == msg.sender && // can't pay for someone else's orders
@@ -182,16 +183,17 @@ contract Osliki {
     );
 
     // in case of any throws the contract's state will be reverted
+    // prevent re-entrancy
     order.status = EnumOrderStatus.Process;
     order.carrier = invoice.sender; // if the customer paid the invoice, it means that he chose the carrier
     order.invoiceId = invoiceId;
-    invoice.status = (deposit != 0 ? EnumInvoiceStatus.Deposit : EnumInvoiceStatus.Prepaid);
+    invoice.status = (deposit != 0 ? EnumInvoiceStatus.Deposit : EnumInvoiceStatus.Prepaid); // ?!?!?!?!?!?
     invoice.depositHash = depositHash; // even if deposit = 0, can be usefull for changing order state
 
     if (invoice.currency == EnumCurrency.ETH) {
       require(msg.value == amount); // not enough or too much funds
 
-      uint balanceBefore = address(this).balance; // for asserts
+      uint balanceBefore = addressThis.balance; // for asserts
       uint fee = 0;
 
       if (prepayment != 0) {
@@ -201,31 +203,34 @@ contract Osliki {
         invoice.sender.transfer(prepayment.sub(fee));
       }
 
-      uint balanceAfter = address(this).balance;
+      // deposit is already added to the contract balance
+
+      uint balanceAfter = addressThis.balance;
 
       assert(balanceAfter == balanceBefore.sub(prepayment).add(fee)); // msg.value is added to balanceBefore
     }
 
     if (invoice.currency == EnumCurrency.OSLIK) { // no fee
       require(msg.value == 0); // prevent loss of ETH
-      require(oslikToken.allowance(msg.sender, this) >= amount); // check allowance
 
-      uint balanceOfBefore = oslikToken.balanceOf(this);
+      uint balanceOfBefore = oslikToken.balanceOf(addressThis);
 
       if (prepayment != 0) {
         oslikToken.safeTransferFrom(msg.sender, invoice.sender, prepayment);
       }
 
       if (deposit != 0) {
-        oslikToken.safeTransferFrom(msg.sender, this, deposit);
+        oslikToken.safeTransferFrom(msg.sender, addressThis, deposit);
       }
 
-      uint balanceOfAfter = oslikToken.balanceOf(this);
+      uint balanceOfAfter = oslikToken.balanceOf(addressThis);
 
       assert(balanceOfAfter == balanceOfBefore.add(deposit));
+
     }
 
     emit EventPayment(invoiceId);
+
   }
 
 

@@ -16,13 +16,16 @@ contract OslikToken is StandardToken {
 
   uint public constant INITIAL_SUPPLY = 10000 * (10 ** uint(decimals));
 
+  address public founder;
+
   /**
    * @dev Constructor that gives msg.sender all of existing tokens.
    */
   function OslikToken() public {
     totalSupply_ = INITIAL_SUPPLY;
-    balances[msg.sender] = INITIAL_SUPPLY;
-    emit Transfer(0x0, msg.sender, INITIAL_SUPPLY);
+    founder = msg.sender;
+    balances[founder] = INITIAL_SUPPLY;
+    emit Transfer(0x0, founder, INITIAL_SUPPLY);
   }
 
 }
