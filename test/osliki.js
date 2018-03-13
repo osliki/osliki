@@ -1,4 +1,4 @@
-//const BigNumber = require('bignumber.js');
+const BigNumber = require('bignumber.js');
 
 const Osliki = artifacts.require('./Osliki.sol')
 
@@ -33,7 +33,7 @@ const mockOffers = [
   ['My offer message 1'],
 ]
 
-const mockInvoices = [
+const mockInvoices = [ // prepayment, deposit, currency
   [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), EnumCurrency.OSLIK],
   [web3.toWei(0.3, 'ether'), web3.toWei(3, 'ether'), EnumCurrency.ETH],
 ]
@@ -104,32 +104,42 @@ contract('Osliki', accounts => {
 
   })
 
+  let balanceBeforePayment
+
   it("should transfer ETH prepayment to the carrier", async () => {
+    //console.dir(instance)
+    balanceBeforePayment = await web3.eth.getBalance(instance.address) // balance before payment
     const invoiceId = 2 //2 = mockInvoices[1]
-    let invoice = await instance.invoices(invoiceId)
     const res = await instance.pay(invoiceId, '', {from: accounts[1], value: web3.toWei(3.3, 'ether')})
 
-    const fees = await instance.fees()
-
     assert.equal(res.logs[0].event + res.logs[0].args.invoiceId.toNumber(),
-      'EventPrePayment' + invoiceId,
-      "EventPrePayment invoiceId wasn't " + invoiceId)
-
-    assert.equal(res.logs[1].event + res.logs[1].args.invoiceId.toNumber(),
-      'EventDeposit' + invoiceId,
-      "EventDeposit invoiceId wasn't " + invoiceId)
-      
-    assert.equal(fees.toString(), web3.toWei(0.003, 'ether'), "wrong amount of fee")
+      'EventPayment' + invoiceId,
+      "EventPayment invoiceId wasn't " + invoiceId)
   })
+
+  it("should have the correct amount of fee", async () => {
+    const balanceAfter = await web3.eth.getBalance(instance.address)
+    const fees = await instance.fees()
+    const fee = web3.toWei(new BigNumber('0.003'), 'ether')
+
+    assert.equal(fees.toString(), fee.toString(), "wrong amount of fee")
+
+    assert.equal(balanceAfter.minus(balanceBeforePayment).toString(), fee.plus(new BigNumber(mockInvoices[1][1])).toString(), "wrong balance after adding fee")
+  })
+
 
   it("should fail duplicate payment", async () => {
     const invoiceId = 2 //2 = mockInvoices[1]
 
     await verifyThrows(async () => {
       await instance.pay(invoiceId, '', {from: accounts[1], value: web3.toWei(3.3, 'ether')})
-    }, /revert/);
-
+    }, /revert/)
   })
+
+
+
+
+
 
 
 
@@ -139,11 +149,6 @@ contract('Osliki', accounts => {
 
 
 return
-
-
-
-
-
 
 
 
@@ -158,9 +163,10 @@ return
     assert.deepEqual(order, [
       accounts[1],
       ...mockOrders[1],
-      '0x0000000000000000000000000000000000000000',
-      0,
-      0,
+      //'0x0000000000000000000000000000000000000000',
+      accounts[4],
+      2, // invoiceId
+      1,
     ], "got wrong order")
   })
 
@@ -169,7 +175,7 @@ return
 
     offer = allBigNumberToNumber(offer)
 
-    assert.deepEqual(offer, [accounts[4], ...mockOffers[1]], "got wrong offer")
+    assert.deepEqual(offer, [accounts[4], 1, ...mockOffers[1]], "got wrong offer")
   })
 
   it("should get invoice by id", async () => {
@@ -182,9 +188,10 @@ return
 
     assert.deepEqual(invoice, [
         accounts[4],
+        1,
         ...mockInvoices[1],
         '0x0000000000000000000000000000000000000000000000000000000000000000',
-        0
+        2
     ], "got wrong invoice")
   })
 

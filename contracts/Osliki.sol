@@ -28,8 +28,9 @@ contract Osliki {
   event EventNewOrder(uint orderId);
   event EventNewOffer(uint offerId, uint orderId);
   event EventNewInvoice(uint invoiceId, uint orderId);
-  event EventPrePayment(uint invoiceId);
-  event EventDeposit(uint invoiceId);
+  event EventPayment(uint invoiceId);
+
+  event EventLog(uint fist, uint sec, uint thrd);
 
   function Osliki(ERC20 _oslikToken, address _oslikiFoundation) public {
     //require(address(_oslikToken) != 0x0 && _oslikiFoundation != 0x0);
@@ -39,11 +40,11 @@ contract Osliki {
 
     // plug for invoices[0] cos default invoiceId in all orders == 0
     invoices.push(Invoice({
-      carrier: 0x0,
+      sender: 0x0,
       orderId: 0,
       prepayment: 0,
       deposit: 0,
-      currency: EnumCurrency.OSLIK,
+      currency: EnumCurrency.ETH,
       depositHash: 0x0,
       status: EnumInvoiceStatus.New,
       createdAt: block.number,
@@ -76,7 +77,7 @@ contract Osliki {
   }
 
   struct Invoice {
-    address carrier;
+    address sender;
     uint orderId;
     uint prepayment;
     uint deposit;
@@ -85,6 +86,10 @@ contract Osliki {
     EnumInvoiceStatus status;
     uint createdAt;
     uint updatedAt;
+  }
+
+  function getFee(uint value) public pure returns (uint) {
+    return value.div(100).mul(OSLIKI_FEE);
   }
 
   function addOrder(
@@ -143,7 +148,7 @@ contract Osliki {
     EnumCurrency currency
   ) public {
     invoices.push(Invoice({
-      carrier: msg.sender,
+      sender: msg.sender,
       orderId: orderId,
       prepayment: prepayment,
       deposit: deposit,
@@ -159,10 +164,6 @@ contract Osliki {
     emit EventNewInvoice(invoiceId, orderId);
   }
 
-  function getFee(uint value) public pure returns (uint) {
-    return value.div(100).mul(OSLIKI_FEE);
-  }
-
   function pay(
     uint invoiceId,
     bytes32 depositHash
@@ -174,58 +175,60 @@ contract Osliki {
     uint deposit = invoice.deposit;
     uint amount = prepayment.add(deposit);
 
-    require(amount != 0 &&
+    require(//amount != 0 &&
       order.customer == msg.sender && // can't pay for someone else's orders
       order.status == EnumOrderStatus.New && // can't pay already processed orders
       invoice.status == EnumInvoiceStatus.New // can't pay already paid invoices
     );
 
+    // in case of any throws the contract's state will be reverted
+    order.status = EnumOrderStatus.Process;
+    order.carrier = invoice.sender; // if the customer paid the invoice, it means that he chose the carrier
+    order.invoiceId = invoiceId;
+    invoice.status = (deposit != 0 ? EnumInvoiceStatus.Deposit : EnumInvoiceStatus.Prepaid);
+    invoice.depositHash = depositHash; // even if deposit = 0, can be usefull for changing order state
+
     if (invoice.currency == EnumCurrency.ETH) {
       require(msg.value == amount); // not enough or too much funds
 
-      order.status = EnumOrderStatus.Process;
+      uint balanceBefore = address(this).balance; // for asserts
+      uint fee = 0;
 
       if (prepayment != 0) {
-        invoice.status = EnumInvoiceStatus.Prepaid;
-        emit EventPrePayment(invoiceId);
-
-        uint fee = getFee(prepayment);
+        fee = getFee(prepayment);
         fees = fees.add(fee);
-        invoice.carrier.transfer(prepayment.sub(fee));
+
+        invoice.sender.transfer(prepayment.sub(fee));
       }
 
-      if (deposit != 0) {
-        invoice.status = EnumInvoiceStatus.Deposit;
-        invoice.depositHash = depositHash;
-        emit EventDeposit(invoiceId);
-      }
+      uint balanceAfter = address(this).balance;
+
+      assert(balanceAfter == balanceBefore.sub(prepayment).add(fee)); // msg.value is added to balanceBefore
     }
 
     if (invoice.currency == EnumCurrency.OSLIK) { // no fee
       require(msg.value == 0); // prevent loss of ETH
       require(oslikToken.allowance(msg.sender, this) >= amount); // check allowance
 
-      order.status = EnumOrderStatus.Process;
+      uint balanceOfBefore = oslikToken.balanceOf(this);
 
       if (prepayment != 0) {
-        invoice.status = EnumInvoiceStatus.Prepaid;
-        emit EventPrePayment(invoiceId);
-
-        oslikToken.safeTransferFrom(msg.sender, invoice.carrier, prepayment);
+        oslikToken.safeTransferFrom(msg.sender, invoice.sender, prepayment);
       }
 
       if (deposit != 0) {
-        invoice.status = EnumInvoiceStatus.Deposit;
-        invoice.depositHash = depositHash;
-        emit EventDeposit(invoiceId);
-
         oslikToken.safeTransferFrom(msg.sender, this, deposit);
       }
+
+      uint balanceOfAfter = oslikToken.balanceOf(this);
+
+      assert(balanceOfAfter == balanceOfBefore.add(deposit));
     }
 
-
-
+    emit EventPayment(invoiceId);
   }
+
+
 
 
   function getOrdersCount() public view returns (uint) {
