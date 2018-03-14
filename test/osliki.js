@@ -41,8 +41,8 @@ const mockOffers = [
 ]
 
 const mockInvoices = [ // prepayment, deposit, valid, currency
-  [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), 500, EnumCurrency.OSLIK],
-  [web3.toWei(0.3, 'ether'), web3.toWei(3, 'ether'), 500, EnumCurrency.ETH],
+  [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), 9999999, EnumCurrency.OSLIK],
+  [web3.toWei(0.3, 'ether'), web3.toWei(3, 'ether'), 9999999, EnumCurrency.ETH],
 ]
 
 const depositHashes = [
@@ -152,6 +152,31 @@ contract('Osliki', accounts => {
     assert.equal(balanceCarrierAfter.minus(balanceCarrierBefore).toString(), web3.toWei(7, 'ether').toString(), "carrier balance was wrong")
   })
 
+  it("should refund order (in OSLIK)", async () => {
+    const invoiceId = 1 // mockInvoices[0] = [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), EnumCurrency.OSLIK],
+    const amount = web3.toWei(7.7, 'ether')
+
+    const [balanceContractBefore, balanceCarrierBefore] = await Promise.all([
+      oslikToken.balanceOf(osliki.address), // balance before payment
+      oslikToken.balanceOf(accounts[3]), // balance before payment
+      oslikToken.approve(osliki.address, amount, {from: accounts[3]}) // he has enough OSLIK
+    ])
+
+    const res = await osliki.refund(invoiceId, {from: accounts[3]})
+
+    const [balanceContractAfter, balanceCarrierAfter] = await Promise.all([
+      oslikToken.balanceOf(osliki.address), // balance before payment
+      oslikToken.balanceOf(accounts[3]) // balance before payment
+    ])
+
+    assert.equal(findEvent('EventRefund', res.logs).args.invoiceId.toNumber(),
+      invoiceId,
+      "EventRefund invoiceId wasn't " + invoiceId)
+
+    assert.equal(balanceContractAfter.toString(), balanceContractBefore.toString(), "contract balance was wrong")
+    assert.equal(balanceCarrierBefore.minus(amount).toString(), balanceCarrierAfter.toString(), "carrier balance was wrong")
+  })
+
 
   /*** PAYMENTS IN  ETH ***/
   it("should fail ETH payment from another customer", async () => {
@@ -236,10 +261,31 @@ contract('Osliki', accounts => {
       "EventFulfill orderId wasn't 1")
 
     assert.equal(feesAfter.minus(feesBefore).toString(), fee.toString(), "wrong amount of fee")
-
+    // balanceCarrierAfter will be less by the gasUsed, so dunno how to calc
     assert.equal(balanceContractBefore.minus(balanceContractAfter).toString(), new BigNumber(mockInvoices[1][1]).minus(fee).toString(), "contract balance was wrong")
   })
 
+  it("should refund order (in ETH)", async () => {
+    const invoiceId = 2 //2 = mockInvoices[1]
+
+    const [balanceContractBefore, balanceCarrierBefore] = await Promise.all([
+      web3.eth.getBalance(osliki.address),
+      web3.eth.getBalance(accounts[4])
+    ])
+
+    const res = await osliki.refund(invoiceId, {from: accounts[4], value: web3.toWei(3.3, 'ether')})
+
+    const [balanceContractAfter, balanceCarrierAfter] = await Promise.all([
+      web3.eth.getBalance(osliki.address),
+      web3.eth.getBalance(accounts[4])
+    ])
+
+    assert.equal(findEvent('EventRefund', res.logs).args.invoiceId.toNumber(),
+      invoiceId,
+      "EventRefund invoiceId wasn't " + invoiceId)
+
+    assert.equal(balanceContractBefore.toString(), balanceContractAfter.toString(), "contract balance was wrong")
+  })
 
   /*** GETTERS ***/
   it("should get order by id", async () => {
@@ -279,7 +325,7 @@ contract('Osliki', accounts => {
         1,
         ...mockInvoices[1],
         depositHashes[0][1],
-        2
+        3
     ], "got wrong invoice")
   })
 

@@ -28,7 +28,9 @@ contract Osliki {
   event EventInvoice(uint invoiceId, uint orderId);
   event EventPayment(uint invoiceId);
   event EventFulfill(uint orderId);
-  event EventLog(uint fist, uint sec, address thrd, address asa);
+  event EventRefund(uint invoiceId);
+
+  event EventLog(uint fist, uint sec, uint thrd, uint asa, EnumInvoiceStatus jh);
 
   struct Order {
     address customer;
@@ -195,7 +197,9 @@ contract Osliki {
     address addressThis = address(this);
 
     require(
-      block.number <= invoice.createdAt.add(invoice.valid)  && // can't pay the invoice in a few years and change the statuses
+      block.number <= invoice.createdAt.add(invoice.valid)  && // can't pay invoices in a few years and change the statuses
+      order.carrier == 0 && // carrier haven't been assigned yet
+      order.invoiceId == 0 && // double check, so impossible to change carriers in the middle of the process
       order.customer == msg.sender && // can't pay for someone else's orders
       order.status == EnumOrderStatus.New && // can't pay already processed orders
       invoice.status == EnumInvoiceStatus.New // can't pay already paid invoices
@@ -308,19 +312,70 @@ contract Osliki {
   }
 
   function refund(
-    uint invoiceId,
-    string depositKey) public payable {
+    uint invoiceId
+  ) public payable {
 
+    Invoice storage invoice = invoices[invoiceId];
+    Order storage order = orders[invoice.orderId];
+
+    require(
+      invoice.sender == msg.sender &&
+      (invoice.status == EnumInvoiceStatus.Settled || invoice.status == EnumInvoiceStatus.Closed)
+    );
+
+    // !!! if invoice.status == EnumInvoiceStatus.Settled
+    uint amountFromCarrier = invoice.prepayment;
+    uint amountFromContract = invoice.deposit;
+
+    if (invoice.status == EnumInvoiceStatus.Closed) {
+      amountFromCarrier = amountFromCarrier.add(invoice.deposit);
+      amountFromContract = amountFromContract.sub(invoice.deposit);
+    }
+
+    invoice.status = EnumInvoiceStatus.Refund;
+    invoice.updatedAt = block.number;
+
+    uint amount = amountFromCarrier.add(amountFromContract);
+    address addressThis = address(this);
+
+    if (invoice.currency == EnumCurrency.ETH) {
+      require(msg.value == amountFromCarrier); // carrier's part of refund not 0
+
+      if (amount != 0) {
+        uint balanceBefore = addressThis.balance;
+
+        order.customer.transfer(amount);
+
+        uint balanceAfter = addressThis.balance;
+        assert(balanceAfter == balanceBefore.sub(amount));
+      }
+    }
+
+    if (invoice.currency == EnumCurrency.OSLIK) {
+      require(msg.value == 0); // prevent loss of ETH
+
+      uint balanceOfBefore = oslikToken.balanceOf(addressThis);
+
+      if (amountFromCarrier != 0) {
+        oslikToken.safeTransferFrom(msg.sender, order.customer, amountFromCarrier);
+      }
+
+      if (amountFromContract != 0) {
+        oslikToken.safeApprove(addressThis, amountFromContract);
+
+        oslikToken.safeTransferFrom(addressThis, order.customer, amountFromContract);
+      }
+
+      uint balanceOfAfter = oslikToken.balanceOf(addressThis);
+      assert(balanceOfAfter == balanceOfBefore.sub(amountFromContract));
+    }
+
+    emit EventRefund(invoiceId);
   }
 
-  function comment(
-    uint orderId,
-    string depositKey) public payable {
+  function comment() public payable {
 
   }
-
-
-
 
   /**GETTERS*/
   function getOrdersCount() public view returns (uint) {
