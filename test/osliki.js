@@ -43,6 +43,10 @@ const mockInvoices = [ // prepayment, deposit, valid, currency
   [web3.toWei(0.3, 'ether'), web3.toWei(3, 'ether'), 500, EnumCurrency.ETH],
 ]
 
+const depositHashes = [
+  ['1234', '387a8233c96e1fc0ad5e284353276177af2186e7afa85296f106336e376669f7']
+]
+
 contract('Osliki', accounts => {
   let osliki;
   let oslikToken;
@@ -93,7 +97,6 @@ contract('Osliki', accounts => {
     await verifyThrows(async () => {
       const res = await osliki.pay(invoiceId, '', {from: accounts[0]})
     }, /revert/);
-
   })
 
   it("should process OSLIK payment", async () => {
@@ -139,12 +142,12 @@ contract('Osliki', accounts => {
     }, /revert/);
   })
 
-  it("should transfer ETH prepayment to the carrier", async () => {
+  it("should process ETH payment", async () => {
     const balanceContractBefore = await web3.eth.getBalance(osliki.address) // balance before payment
     const balanceCarrierBefore = await web3.eth.getBalance(accounts[4])
 
     const invoiceId = 2 //2 = mockInvoices[1]
-    const res = await osliki.pay(invoiceId, '', {from: accounts[1], value: web3.toWei(3.3, 'ether')})
+    const res = await osliki.pay(invoiceId, depositHashes[0][1], {from: accounts[1], value: web3.toWei(3.3, 'ether')})
 
     const fees = await osliki.fees()
     const fee = web3.toWei(new BigNumber('0.003'), 'ether')

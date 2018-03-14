@@ -27,6 +27,7 @@ contract Osliki {
   event EventOffer(uint offerId, uint orderId);
   event EventInvoice(uint invoiceId, uint orderId);
   event EventPayment(uint invoiceId);
+  event EventFulfill(uint orderId);
   event EventLog(uint fist, uint sec, address thrd, address asa);
 
   struct Order {
@@ -228,7 +229,6 @@ contract Osliki {
       // deposit is already added to the contract balance
 
       uint balanceAfter = addressThis.balance;
-
       assert(balanceAfter == balanceBefore.sub(prepayment).add(fee)); // msg.value is added to balanceBefore
     }
 
@@ -246,7 +246,6 @@ contract Osliki {
       }
 
       uint balanceOfAfter = oslikToken.balanceOf(addressThis);
-
       assert(balanceOfAfter == balanceOfBefore.add(deposit));
     }
 
@@ -255,20 +254,57 @@ contract Osliki {
   }
 
   function fulfill(
-    uint invoiceId,
+    uint orderId,
     string depositKey
   ) public {
 
-    Invoice storage invoice = invoices[invoiceId];
-    Order storage order = orders[invoice.orderId];
+    Order storage order = orders[orderId];
+    Invoice storage invoice = invoices[order.invoiceId];
 
     bytes32 defaultHash;
 
     require(
       order.carrier == msg.sender && // only carrier
-      (invoice.depositHash != defaultHash && invoice.depositHash == keccak256(depositKey))
-    )
+      invoice.sender == msg.sender && // just in case
+      order.status == EnumOrderStatus.Process &&
+      invoice.status == EnumInvoiceStatus.Settled && // double check
+      (invoice.depositHash == defaultHash || invoice.depositHash == keccak256(depositKey)) // depositHash can be empty
+    );
 
+    order.status = EnumOrderStatus.Fulfilled;
+    order.updatedAt = block.number;
+
+    invoice.status = EnumInvoiceStatus.Closed;
+    invoice.updatedAt = block.number;
+
+    uint deposit = invoice.deposit;
+
+    if (deposit != 0) {
+      address addressThis = address(this);
+
+      if (invoice.currency == EnumCurrency.ETH) {
+        uint balanceBefore = addressThis.balance;
+
+        uint fee = getFee(deposit);
+        fees = fees.add(fee);
+
+        invoice.sender.transfer(deposit.sub(fee));
+
+        uint balanceAfter = addressThis.balance;
+        assert(balanceAfter == balanceBefore.sub(deposit).add(fee));
+      }
+
+      if (invoice.currency == EnumCurrency.OSLIK) { // no fee
+        uint balanceOfBefore = oslikToken.balanceOf(addressThis);
+
+        ERC20(this).safeTransfer(invoice.sender, deposit);
+
+        uint balanceOfAfter = oslikToken.balanceOf(addressThis);
+        assert(balanceOfAfter == balanceOfBefore.sub(deposit));
+      }
+    }
+
+    emit EventFulfill(orderId);
   }
 
   function refund(
