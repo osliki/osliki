@@ -94,8 +94,8 @@ contract Osliki {
       currency: EnumCurrency.ETH,
       depositHash: 0x0,
       status: EnumInvoiceStatus.New,
-      createdAt: block.number,
-      updatedAt: block.number
+      createdAt: now,
+      updatedAt: now
     }));
   }
 
@@ -125,8 +125,8 @@ contract Osliki {
       invoiceId: 0,
 
       status: EnumOrderStatus.New,
-      createdAt: block.number,
-      updatedAt: block.number
+      createdAt: now,
+      updatedAt: now
     }));
 
     uint orderId = orders.length -1;
@@ -148,7 +148,7 @@ contract Osliki {
     uint offerId = offers.length - 1;
 
     orders[orderId].offerIds.push(offerId);
-    orders[orderId].updatedAt = block.number;
+    orders[orderId].updatedAt = now;
 
     emit EventOffer(offerId, orderId);
   }
@@ -174,8 +174,8 @@ contract Osliki {
       currency: currency,
       depositHash: '',
       status: EnumInvoiceStatus.New,
-      createdAt: block.number,
-      updatedAt: block.number
+      createdAt: now,
+      updatedAt: now
     }));
 
     uint invoiceId = invoices.length - 1;
@@ -197,7 +197,7 @@ contract Osliki {
     address addressThis = address(this);
 
     require(
-      block.number <= invoice.createdAt.add(invoice.valid)  && // can't pay invoices in a few years and change the statuses
+      now <= invoice.createdAt.add(invoice.valid)  && // can't pay invoices in a few years and change the statuses
       order.carrier == 0 && // carrier haven't been assigned yet
       order.invoiceId == 0 && // double check, so impossible to change carriers in the middle of the process
       order.customer == msg.sender && // can't pay for someone else's orders
@@ -210,12 +210,12 @@ contract Osliki {
     order.status = EnumOrderStatus.Process;
     order.carrier = invoice.sender; // if the customer paid the invoice, it means that he chose the carrier
     order.invoiceId = invoiceId;
-    order.updatedAt = block.number;
+    order.updatedAt = now;
 
     //invoice.status = (deposit != 0 ? EnumInvoiceStatus.Deposit : EnumInvoiceStatus.Prepaid); // ?!?!?!?!?!?
     invoice.status = EnumInvoiceStatus.Settled;
     invoice.depositHash = depositHash; // even if deposit = 0, can be usefull for changing order state
-    invoice.updatedAt = block.number;
+    invoice.updatedAt = now;
 
     if (invoice.currency == EnumCurrency.ETH) {
       require(msg.value == amount); // not enough or too much funds
@@ -275,10 +275,10 @@ contract Osliki {
     );
 
     order.status = EnumOrderStatus.Fulfilled;
-    order.updatedAt = block.number;
+    order.updatedAt = now;
 
     invoice.status = EnumInvoiceStatus.Closed;
-    invoice.updatedAt = block.number;
+    invoice.updatedAt = now;
 
     uint deposit = invoice.deposit;
 
@@ -333,7 +333,7 @@ contract Osliki {
     }
 
     invoice.status = EnumInvoiceStatus.Refund;
-    invoice.updatedAt = block.number;
+    invoice.updatedAt = now;
 
     uint amount = amountFromCarrier.add(amountFromContract);
     address addressThis = address(this);
