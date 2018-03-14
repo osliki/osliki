@@ -140,9 +140,7 @@ contract Osliki {
     uint orderId = orders.length - 1;
 
     /* stats */
-    Stat storage stat = stats[msg.sender];
-    stat.orders[stat.orders.length] = orderId;
-    //stat.orders.push(orderId);
+    stats[msg.sender].orders.push(orderId);
 
     emit EventOrder(orderId);
   }
@@ -177,6 +175,9 @@ contract Osliki {
     uint valid,
     EnumCurrency currency
   ) public {
+    Order memory order = orders[orderId];
+
+    require(order.customer != msg.sender); // the customer can't be a carrier at the same time (for stats and reviews)
 
     invoices.push(Invoice({
       sender: msg.sender,
@@ -217,7 +218,7 @@ contract Osliki {
       order.customer == msg.sender && // can't pay for someone else's orders
       order.status == EnumOrderStatus.New && // can't pay already processed orders
 
-      invoice.sender != msg.sender && // the customer can't be a carrier at the same time (for stats and reviews)
+      invoice.sender != msg.sender && // ??? double check, the customer can't be a carrier at the same time (for stats and reviews)
       invoice.status == EnumInvoiceStatus.New // can't pay already paid invoices
     );
 
@@ -229,8 +230,7 @@ contract Osliki {
     order.updatedAt = now;
 
     /* stats */
-    Stat storage stat = stats[order.carrier];
-    stat.orders[stat.orders.length] = invoice.orderId;
+    stats[order.carrier].orders.push(invoice.orderId);
 
     //invoice.status = (deposit != 0 ? EnumInvoiceStatus.Deposit : EnumInvoiceStatus.Prepaid); // ?!?!?!?!?!?
     invoice.status = EnumInvoiceStatus.Settled;

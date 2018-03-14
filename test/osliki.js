@@ -287,6 +287,11 @@ contract('Osliki', accounts => {
     assert.equal(balanceContractBefore.toString(), balanceContractAfter.toString(), "contract balance was wrong")
   })
 
+  /*** REVIEWs ***/
+  it("should add a review", async () => {
+
+  })
+
   /*** GETTERS ***/
   it("should get order by id", async () => {
     let order = await osliki.orders(1)
