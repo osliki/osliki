@@ -30,7 +30,7 @@ contract Osliki {
   event EventFulfill(uint orderId);
   event EventRefund(uint invoiceId);
 
-  event EventLog(uint fist, uint sec, uint thrd, uint asa, EnumInvoiceStatus jh);
+  event EventLog(uint fist, uint sec, uint thrd, uint asa);
 
   struct Order {
     address customer;
@@ -134,10 +134,13 @@ contract Osliki {
     emit EventOrder(orderId);
   }
 
+  /*@ToDo: require order.date < now */
   function addOffer(
       uint orderId,
       string message
   ) public {
+    Order storage order = orders[orderId];
+    require(order.date >= now); // spoiled order
 
     offers.push(Offer({
       carrier: msg.sender,
@@ -147,8 +150,8 @@ contract Osliki {
 
     uint offerId = offers.length - 1;
 
-    orders[orderId].offerIds.push(offerId);
-    orders[orderId].updatedAt = now;
+    order.offerIds.push(offerId);
+    order.updatedAt = now;
 
     emit EventOffer(offerId, orderId);
   }
