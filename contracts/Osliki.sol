@@ -250,7 +250,6 @@ contract Osliki {
     }
 
     emit EventPayment(invoiceId);
-
   }
 
   function fulfill(
@@ -268,7 +267,7 @@ contract Osliki {
       invoice.sender == msg.sender && // just in case
       order.status == EnumOrderStatus.Process &&
       invoice.status == EnumInvoiceStatus.Settled && // double check
-      (invoice.depositHash == defaultHash || invoice.depositHash == keccak256(depositKey)) // depositHash can be empty
+      (invoice.depositHash == defaultHash || invoice.depositHash == keccak256(depositKey))// depositHash can be empty
     );
 
     order.status = EnumOrderStatus.Fulfilled;
@@ -297,7 +296,8 @@ contract Osliki {
       if (invoice.currency == EnumCurrency.OSLIK) { // no fee
         uint balanceOfBefore = oslikToken.balanceOf(addressThis);
 
-        ERC20(this).safeTransfer(invoice.sender, deposit);
+        oslikToken.safeApprove(addressThis, deposit);
+        oslikToken.safeTransferFrom(addressThis, invoice.sender, deposit);
 
         uint balanceOfAfter = oslikToken.balanceOf(addressThis);
         assert(balanceOfAfter == balanceOfBefore.sub(deposit));

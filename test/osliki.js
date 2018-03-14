@@ -23,6 +23,8 @@ function findEvent(eventName, logs) {
   return logs.find((log) => log.event === eventName)
 }
 
+const gasPrice = web3.toWei(2, 'gwei')
+
 const EnumCurrency = {
   ETH: 0,
   OSLIK: 1,
@@ -44,7 +46,7 @@ const mockInvoices = [ // prepayment, deposit, valid, currency
 ]
 
 const depositHashes = [
-  ['1234', '387a8233c96e1fc0ad5e284353276177af2186e7afa85296f106336e376669f7']
+  ['1234', web3.sha3('1234')]
 ]
 
 contract('Osliki', accounts => {
@@ -137,7 +139,7 @@ contract('Osliki', accounts => {
 
     const invoiceId = 1 // mockInvoices[0] = [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), EnumCurrency.OSLIK],
 
-    const res = await osliki.fulfill(invoiceId, '', {from: accounts[3]})
+    const res = await osliki.fulfill(0, '', {from: accounts[3]})
 
     const balanceContractAfter = await oslikToken.balanceOf(osliki.address)
     const balanceCarrierAfter = await oslikToken.balanceOf(accounts[3])
@@ -146,20 +148,18 @@ contract('Osliki', accounts => {
       0,
       "EventFulfill orderId wasn't 0")
 
-    assert.equal(balanceContractAfter.minus(balanceContractBefore).toString(), web3.toWei(0.7, 'ether').toString(), "contract balance was wrong")
-    assert.equal(balanceCarrierAfter.minus(balanceCarrierBefore).toString(), web3.toWei(6.3, 'ether').toString(), "carrier balance was wrong")
+    assert.equal(balanceContractBefore.minus(balanceContractAfter).toString(), web3.toWei(7, 'ether').toString(), "contract balance was wrong")
+    assert.equal(balanceCarrierAfter.minus(balanceCarrierBefore).toString(), web3.toWei(7, 'ether').toString(), "carrier balance was wrong")
   })
 
 
-return
   /*** PAYMENTS IN  ETH ***/
   it("should fail ETH payment from another customer", async () => {
     const invoiceId = 2 //2 = mockInvoices[1]
 
     await verifyThrows(async () => {
       await osliki.pay(invoiceId, '', {from: accounts[2], value: web3.toWei(3.3, 'ether')})
-    }, /revert/);
-
+    }, /revert/)
   })
 
   it("should fail ETH payment with not enough value", async () => {
@@ -167,21 +167,26 @@ return
 
     await verifyThrows(async () => {
       await osliki.pay(invoiceId, '', {from: accounts[1], value: web3.toWei(3.29999, 'ether')})
-    }, /revert/);
+    }, /revert/)
   })
 
   it("should process ETH payment", async () => {
-    const balanceContractBefore = await web3.eth.getBalance(osliki.address) // balance before payment
-    const balanceCarrierBefore = await web3.eth.getBalance(accounts[4])
-
     const invoiceId = 2 //2 = mockInvoices[1]
+
+    const [balanceContractBefore, balanceCarrierBefore] = await Promise.all([
+      web3.eth.getBalance(osliki.address),
+      web3.eth.getBalance(accounts[4]),
+    ])
+
     const res = await osliki.pay(invoiceId, depositHashes[0][1], {from: accounts[1], value: web3.toWei(3.3, 'ether')})
 
-    const fees = await osliki.fees()
-    const fee = web3.toWei(new BigNumber('0.003'), 'ether')
+    const [balanceContractAfter, balanceCarrierAfter, fees] = await Promise.all([
+      web3.eth.getBalance(osliki.address),
+      web3.eth.getBalance(accounts[4]),
+      osliki.fees()
+    ])
 
-    const balanceContractAfter = await web3.eth.getBalance(osliki.address)
-    const balanceCarrierAfter = await web3.eth.getBalance(accounts[4])
+    const fee = web3.toWei(new BigNumber('0.003'), 'ether')
 
     assert.equal(res.logs[0].event + res.logs[0].args.invoiceId.toNumber(),
       'EventPayment' + invoiceId,
@@ -201,12 +206,41 @@ return
     }, /revert/)
   })
 
+  it("should fail fulfill with wrong depositKey", async () => {
+    await verifyThrows(async () => {
+      await osliki.fulfill(1, '1235'/*key*/, {from: accounts[4]})
+    }, /revert/)
+  })
+
+  it("should fulfill order (in ETH)", async () => {
+    const invoiceId = 2 //2 = mockInvoices[1]
+
+    const [balanceContractBefore, balanceCarrierBefore, feesBefore] = await Promise.all([
+      web3.eth.getBalance(osliki.address),
+      web3.eth.getBalance(accounts[4]),
+      osliki.fees()
+    ])
+
+    const res = await osliki.fulfill(1, depositHashes[0][0]/*key*/, {from: accounts[4]})
+
+    const [balanceContractAfter, balanceCarrierAfter, feesAfter] = await Promise.all([
+      web3.eth.getBalance(osliki.address),
+      web3.eth.getBalance(accounts[4]),
+      osliki.fees()
+    ])
+
+    const fee = web3.toWei(new BigNumber('0.03'), 'ether')
+
+    assert.equal(findEvent('EventFulfill', res.logs).args.orderId.toNumber(),
+      1,
+      "EventFulfill orderId wasn't 1")
+
+    assert.equal(feesAfter.minus(feesBefore).toString(), fee.toString(), "wrong amount of fee")
+
+    assert.equal(balanceContractBefore.minus(balanceContractAfter).toString(), new BigNumber(mockInvoices[1][1]).minus(fee).toString(), "contract balance was wrong")
+  })
 
 
-
-
-
-return
   /*** GETTERS ***/
   it("should get order by id", async () => {
     let order = await osliki.orders(1)
@@ -220,7 +254,7 @@ return
       //'0x0000000000000000000000000000000000000000',
       accounts[4],
       2, // invoiceId
-      1,
+      2,
     ], "got wrong order")
   })
 
@@ -244,8 +278,8 @@ return
         accounts[4],
         1,
         ...mockInvoices[1],
-        '0x0000000000000000000000000000000000000000000000000000000000000000',
-        1
+        depositHashes[0][1],
+        2
     ], "got wrong invoice")
   })
 
