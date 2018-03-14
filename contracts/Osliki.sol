@@ -16,19 +16,19 @@ contract Osliki {
   Order[] public orders;
   Offer[] public offers;
   Invoice[] public invoices;
-  mapping (address => uint[]) public stats;
+  mapping (address => Stat) internal stats;
 
   enum EnumOrderStatus { New, Process, Fulfilled }
   enum EnumInvoiceStatus { New, Settled, Closed, Refund }
   enum EnumCurrency { ETH, OSLIK }
-  enum EnumStars { _0, _1, _2, _3, _4, _5 }
 
   event EventOrder(uint orderId);
-  event EventOffer(uint offerId, uint orderId);
-  event EventInvoice(uint invoiceId, uint orderId);
-  event EventPayment(uint invoiceId);
-  event EventFulfill(uint orderId);
-  event EventRefund(uint invoiceId);
+  event EventOffer(uint offerId, uint indexed orderId);
+  event EventInvoice(uint invoiceId, uint indexed orderId);
+  event EventPayment(uint indexed invoiceId);
+  event EventFulfill(uint indexed orderId);
+  event EventRefund(uint indexed invoiceId);
+  event EventReview(uint indexed orderId, address from);
 
   event EventLog(uint fist, uint sec, uint thrd, uint asa);
 
@@ -70,8 +70,16 @@ contract Osliki {
   }
 
   struct Stat {
-    EnumStars stars;
-    string comment;
+    uint[] orders;
+    uint starsSum;
+    uint starsCount;
+    mapping (uint => Review) reviews; // orderId => Stat
+  }
+
+  struct Review {
+    bool lock; // can star only once
+    uint8 stars; // 0-5
+    string text;
   }
 
   function Osliki(
@@ -129,17 +137,23 @@ contract Osliki {
       updatedAt: now
     }));
 
-    uint orderId = orders.length -1;
+    uint orderId = orders.length - 1;
+
+    /* stats */
+    Stat storage stat = stats[msg.sender];
+    stat.orders[stat.orders.length] = orderId;
+    //stat.orders.push(orderId);
 
     emit EventOrder(orderId);
   }
 
-  /*@ToDo: require order.date < now */
   function addOffer(
       uint orderId,
       string message
   ) public {
+
     Order storage order = orders[orderId];
+
     require(order.date >= now); // spoiled order
 
     offers.push(Offer({
@@ -156,10 +170,6 @@ contract Osliki {
     emit EventOffer(offerId, orderId);
   }
 
-  /* @ToDo:
-  check possible issues with invoices[0]
-  add dateBefore
-  */
   function addInvoice(
     uint orderId,
     uint prepayment,
@@ -201,19 +211,26 @@ contract Osliki {
 
     require(
       now <= invoice.createdAt.add(invoice.valid)  && // can't pay invoices in a few years and change the statuses
+
       order.carrier == 0 && // carrier haven't been assigned yet
       order.invoiceId == 0 && // double check, so impossible to change carriers in the middle of the process
       order.customer == msg.sender && // can't pay for someone else's orders
       order.status == EnumOrderStatus.New && // can't pay already processed orders
+
+      invoice.sender != msg.sender && // the customer can't be a carrier at the same time (for stats and reviews)
       invoice.status == EnumInvoiceStatus.New // can't pay already paid invoices
     );
 
     // in case of any throws the contract's state will be reverted
     // prevent re-entrancy
     order.status = EnumOrderStatus.Process;
-    order.carrier = invoice.sender; // if the customer paid the invoice, it means that he chose the carrier
+    order.carrier = invoice.sender; // if the customer paid the invoice, it means that he chose a carrier
     order.invoiceId = invoiceId;
     order.updatedAt = now;
+
+    /* stats */
+    Stat storage stat = stats[order.carrier];
+    stat.orders[stat.orders.length] = invoice.orderId;
 
     //invoice.status = (deposit != 0 ? EnumInvoiceStatus.Deposit : EnumInvoiceStatus.Prepaid); // ?!?!?!?!?!?
     invoice.status = EnumInvoiceStatus.Settled;
@@ -326,7 +343,7 @@ contract Osliki {
       (invoice.status == EnumInvoiceStatus.Settled || invoice.status == EnumInvoiceStatus.Closed)
     );
 
-    // !!! if invoice.status == EnumInvoiceStatus.Settled
+    // if (invoice.status == EnumInvoiceStatus.Settled)
     uint amountFromCarrier = invoice.prepayment;
     uint amountFromContract = invoice.deposit;
 
@@ -376,8 +393,35 @@ contract Osliki {
     emit EventRefund(invoiceId);
   }
 
-  function comment() public payable {
+  function addReview(
+    uint orderId,
+    uint8 stars,
+    string text
+  ) public {
 
+    Order storage order = orders[orderId];
+
+    address customer = order.customer;
+    address carrier = order.carrier;
+
+    Stat storage stat = stats[msg.sender == customer ? carrier : customer];
+    Review storage review = stat.reviews[orderId];
+
+    require(
+      (msg.sender == customer || msg.sender == carrier) &&
+      (order.status == EnumOrderStatus.Process || order.status == EnumOrderStatus.Fulfilled) &&
+      !review.lock &&
+      (stars > 0 && stars <= 5)
+    );
+
+    review.lock = true;
+    review.stars = stars;
+    review.text = text;
+
+    stat.starsSum = stat.starsSum.add(stars);
+    stat.starsCount++;
+
+    emit EventReview(orderId, msg.sender);
   }
 
   /**GETTERS*/
@@ -399,6 +443,27 @@ contract Osliki {
 
   function getInvoicesCount() public view returns (uint) {
     return invoices.length;
+  }
+
+  function getStat(address user) public view returns(uint ordersCount, uint starsSum, uint starsCount) {
+      Stat memory stat = stats[user];
+
+      ordersCount = stat.orders.length;
+      starsSum = stat.starsSum;
+      starsCount = stat.starsCount;
+  }
+
+  function getUserOrders(address user, uint index) public view returns(uint orderId) {
+      Stat memory stat = stats[user];
+
+      orderId = stat.orders[index];
+  }
+
+  function getReview(address user, uint orderId) public view returns(uint8 stars, string text) {
+      Review memory review = stats[user].reviews[orderId];
+
+      stars = review.stars;
+      text = review.text;
   }
 
 }
