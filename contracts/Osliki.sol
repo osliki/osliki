@@ -4,10 +4,6 @@ import '../node_modules/zeppelin-solidity/contracts/math/SafeMath.sol';
 import '../node_modules/zeppelin-solidity/contracts/token/ERC20/ERC20.sol';
 import '../node_modules/zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol';
 
-/*@ToDo:
-check check the sequence of event calls
-rational
-*/
 contract Osliki {
   using SafeMath for uint;
   using SafeERC20 for ERC20;
@@ -20,37 +16,18 @@ contract Osliki {
   Order[] public orders;
   Offer[] public offers;
   Invoice[] public invoices;
+  mapping (address => uint[]) public stats;
 
   enum EnumOrderStatus { New, Process, Fulfilled }
-  enum EnumInvoiceStatus { New, Prepaid, Deposit, Paid }
+  enum EnumInvoiceStatus { New, Settled, Closed, Refund }
   enum EnumCurrency { ETH, OSLIK }
+  enum EnumStars { _0, _1, _2, _3, _4, _5 }
 
-  event EventNewOrder(uint orderId);
-  event EventNewOffer(uint offerId, uint orderId);
-  event EventNewInvoice(uint invoiceId, uint orderId);
+  event EventOrder(uint orderId);
+  event EventOffer(uint offerId, uint orderId);
+  event EventInvoice(uint invoiceId, uint orderId);
   event EventPayment(uint invoiceId);
-
   event EventLog(uint fist, uint sec, address thrd, address asa);
-
-  function Osliki(ERC20 _oslikToken, address _oslikiFoundation) public {
-    require(address(_oslikToken) != address(0) && _oslikiFoundation != address(0));
-
-    oslikToken = _oslikToken;
-    oslikiFoundation = _oslikiFoundation;
-
-    // plug for invoices[0] cos default invoiceId in all orders == 0
-    invoices.push(Invoice({
-      sender: 0x0,
-      orderId: 0,
-      prepayment: 0,
-      deposit: 0,
-      currency: EnumCurrency.ETH,
-      depositHash: 0x0,
-      status: EnumInvoiceStatus.New,
-      createdAt: block.number,
-      updatedAt: block.number
-    }));
-  }
 
   struct Order {
     address customer;
@@ -81,11 +58,42 @@ contract Osliki {
     uint orderId;
     uint prepayment;
     uint deposit;
+    uint valid;
     EnumCurrency currency;
     bytes32 depositHash;
     EnumInvoiceStatus status;
     uint createdAt;
     uint updatedAt;
+  }
+
+  struct Stat {
+    EnumStars stars;
+    string comment;
+  }
+
+  function Osliki(
+    ERC20 _oslikToken,
+    address _oslikiFoundation
+  ) public {
+
+    require(address(_oslikToken) != address(0) && _oslikiFoundation != address(0));
+
+    oslikToken = _oslikToken;
+    oslikiFoundation = _oslikiFoundation;
+
+    // plug for invoices[0] cos default invoiceId in all orders == 0
+    invoices.push(Invoice({
+      sender: 0x0,
+      orderId: 0,
+      prepayment: 0,
+      deposit: 0,
+      valid: 0,
+      currency: EnumCurrency.ETH,
+      depositHash: 0x0,
+      status: EnumInvoiceStatus.New,
+      createdAt: block.number,
+      updatedAt: block.number
+    }));
   }
 
   function getFee(uint value) public pure returns (uint) {
@@ -99,6 +107,7 @@ contract Osliki {
       uint date,
       string message
   ) public {
+
     orders.push(Order({
       customer: msg.sender,
       from: from,
@@ -119,13 +128,14 @@ contract Osliki {
 
     uint orderId = orders.length -1;
 
-    emit EventNewOrder(orderId);
+    emit EventOrder(orderId);
   }
 
   function addOffer(
       uint orderId,
       string message
   ) public {
+
     offers.push(Offer({
       carrier: msg.sender,
       orderId: orderId,
@@ -137,21 +147,27 @@ contract Osliki {
     orders[orderId].offerIds.push(offerId);
     orders[orderId].updatedAt = block.number;
 
-    emit EventNewOffer(offerId, orderId);
+    emit EventOffer(offerId, orderId);
   }
 
-  /* @ToDo: check possible issues with invoices[0] */
+  /* @ToDo:
+  check possible issues with invoices[0]
+  add dateBefore
+  */
   function addInvoice(
     uint orderId,
     uint prepayment,
     uint deposit,
+    uint valid,
     EnumCurrency currency
   ) public {
+
     invoices.push(Invoice({
       sender: msg.sender,
       orderId: orderId,
       prepayment: prepayment,
       deposit: deposit,
+      valid: valid,
       currency: currency,
       depositHash: '',
       status: EnumInvoiceStatus.New,
@@ -161,13 +177,14 @@ contract Osliki {
 
     uint invoiceId = invoices.length - 1;
 
-    emit EventNewInvoice(invoiceId, orderId);
+    emit EventInvoice(invoiceId, orderId);
   }
 
   function pay(
     uint invoiceId,
     bytes32 depositHash
   ) public payable {
+
     Invoice storage invoice = invoices[invoiceId];
     Order storage order = orders[invoice.orderId];
 
@@ -176,7 +193,8 @@ contract Osliki {
     uint amount = prepayment.add(deposit);
     address addressThis = address(this);
 
-    require(//amount != 0 &&
+    require(
+      block.number <= invoice.createdAt.add(invoice.valid)  && // can't pay the invoice in a few years and change the statuses
       order.customer == msg.sender && // can't pay for someone else's orders
       order.status == EnumOrderStatus.New && // can't pay already processed orders
       invoice.status == EnumInvoiceStatus.New // can't pay already paid invoices
@@ -187,8 +205,12 @@ contract Osliki {
     order.status = EnumOrderStatus.Process;
     order.carrier = invoice.sender; // if the customer paid the invoice, it means that he chose the carrier
     order.invoiceId = invoiceId;
-    invoice.status = (deposit != 0 ? EnumInvoiceStatus.Deposit : EnumInvoiceStatus.Prepaid); // ?!?!?!?!?!?
+    order.updatedAt = block.number;
+
+    //invoice.status = (deposit != 0 ? EnumInvoiceStatus.Deposit : EnumInvoiceStatus.Prepaid); // ?!?!?!?!?!?
+    invoice.status = EnumInvoiceStatus.Settled;
     invoice.depositHash = depositHash; // even if deposit = 0, can be usefull for changing order state
+    invoice.updatedAt = block.number;
 
     if (invoice.currency == EnumCurrency.ETH) {
       require(msg.value == amount); // not enough or too much funds
@@ -226,16 +248,45 @@ contract Osliki {
       uint balanceOfAfter = oslikToken.balanceOf(addressThis);
 
       assert(balanceOfAfter == balanceOfBefore.add(deposit));
-
     }
 
     emit EventPayment(invoiceId);
 
   }
 
+  function fulfill(
+    uint invoiceId,
+    string depositKey
+  ) public {
+
+    Invoice storage invoice = invoices[invoiceId];
+    Order storage order = orders[invoice.orderId];
+
+    bytes32 defaultHash;
+
+    require(
+      order.carrier == msg.sender && // only carrier
+      (invoice.depositHash != defaultHash && invoice.depositHash == keccak256(depositKey))
+    )
+
+  }
+
+  function refund(
+    uint invoiceId,
+    string depositKey) public payable {
+
+  }
+
+  function comment(
+    uint orderId,
+    string depositKey) public payable {
+
+  }
 
 
 
+
+  /**GETTERS*/
   function getOrdersCount() public view returns (uint) {
     return orders.length;
   }
@@ -248,7 +299,12 @@ contract Osliki {
     return orders[orderId].offerIds.length;
   }
 
+  function getOrderOffer(uint orderId, uint index) public view returns (uint) {
+    return orders[orderId].offerIds[index];
+  }
+
   function getInvoicesCount() public view returns (uint) {
     return invoices.length;
   }
+
 }

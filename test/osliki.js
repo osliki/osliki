@@ -38,9 +38,9 @@ const mockOffers = [
   ['My offer message 1'],
 ]
 
-const mockInvoices = [ // prepayment, deposit, currency
-  [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), EnumCurrency.OSLIK],
-  [web3.toWei(0.3, 'ether'), web3.toWei(3, 'ether'), EnumCurrency.ETH],
+const mockInvoices = [ // prepayment, deposit, valid, currency
+  [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), 500, EnumCurrency.OSLIK],
+  [web3.toWei(0.3, 'ether'), web3.toWei(3, 'ether'), 500, EnumCurrency.ETH],
 ]
 
 contract('Osliki', accounts => {
@@ -202,14 +202,14 @@ contract('Osliki', accounts => {
     invoice = allBigNumberToNumber(invoice)
     invoice[2] = invoice[2].toString()
     invoice[3] = invoice[3].toString()
-    invoice.splice(7) // remove createdAt and updatedAt
+    invoice.splice(8) // remove createdAt and updatedAt
 
     assert.deepEqual(invoice, [
         accounts[4],
         1,
         ...mockInvoices[1],
         '0x0000000000000000000000000000000000000000000000000000000000000000',
-        2
+        1
     ], "got wrong invoice")
   })
 
