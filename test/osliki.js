@@ -123,7 +123,35 @@ contract('Osliki', accounts => {
     assert.equal(balanceCarrierAfter.minus(balanceCarrierBefore).toString(), web3.toWei(0.7, 'ether').toString(), "carrier balance was wrong")
   })
 
+  it("should fail fulfill order (in OSLIK) from another carrier", async () => {
+    const invoiceId = 1 // mockInvoices[0] = [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), EnumCurrency.OSLIK],
 
+    await verifyThrows(async () => {
+      const res = await osliki.fulfill(invoiceId, '', {from: accounts[4]})
+    }, /revert/);
+  })
+
+  it("should fulfill order (in OSLIK)", async () => {
+    const balanceContractBefore = await oslikToken.balanceOf(osliki.address) // balance before payment
+    const balanceCarrierBefore = await oslikToken.balanceOf(accounts[3]) // balance before payment
+
+    const invoiceId = 1 // mockInvoices[0] = [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), EnumCurrency.OSLIK],
+
+    const res = await osliki.fulfill(invoiceId, '', {from: accounts[3]})
+
+    const balanceContractAfter = await oslikToken.balanceOf(osliki.address)
+    const balanceCarrierAfter = await oslikToken.balanceOf(accounts[3])
+
+    assert.equal(findEvent('EventFulfill', res.logs).args.orderId.toNumber(),
+      0,
+      "EventFulfill orderId wasn't 0")
+
+    assert.equal(balanceContractAfter.minus(balanceContractBefore).toString(), web3.toWei(0.7, 'ether').toString(), "contract balance was wrong")
+    assert.equal(balanceCarrierAfter.minus(balanceCarrierBefore).toString(), web3.toWei(6.3, 'ether').toString(), "carrier balance was wrong")
+  })
+
+
+return
   /*** PAYMENTS IN  ETH ***/
   it("should fail ETH payment from another customer", async () => {
     const invoiceId = 2 //2 = mockInvoices[1]
@@ -174,6 +202,11 @@ contract('Osliki', accounts => {
   })
 
 
+
+
+
+
+return
   /*** GETTERS ***/
   it("should get order by id", async () => {
     let order = await osliki.orders(1)
