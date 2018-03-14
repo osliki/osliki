@@ -287,9 +287,33 @@ contract('Osliki', accounts => {
     assert.equal(balanceContractBefore.toString(), balanceContractAfter.toString(), "contract balance was wrong")
   })
 
-  /*** REVIEWs ***/
-  it("should add a review", async () => {
 
+  /*** REVIEWS
+    accounts[0](customer OSLIKI) <=> accounts[3](carrier) | orderId = 0, invoiceId = 1
+    accounts[1](customer ETH) <=> accounts[4](carrier) | orderId = 1, invoiceId = 2
+  ***/
+
+  it("should add reviews", async () => {
+    const orderId = 0;
+    const orderId1 = 1;
+
+    await Promise.all([
+      verifyThrows(async () => await osliki.addReview(orderId, 5, 'Excellent!', {from: accounts[1]}), /revert/), // wrong address
+      verifyThrows(async () => await osliki.addReview(orderId, 10, 'Excellent!', {from: accounts[0]}), /revert/), // wrong star
+      verifyThrows(async () => await osliki.addReview(orderId, 0, 'Excellent!', {from: accounts[0]}), /revert/), // wrong star
+    ]);
+
+    const res = await osliki.addReview(orderId, 5, 'Excellent!', {from: accounts[0]})
+    const args = findEvent('EventReview', res.logs).args
+
+    await Promise.all([
+      verifyThrows(async () => await osliki.addReview(orderId, 1, 'Bad', {from: accounts[0]}), /revert/), // attempt to rate again
+      await osliki.addReview(orderId1, 5, 'OK!', {from: accounts[1]}),
+      await osliki.addReview(orderId, 4, 'Very good!', {from: accounts[3]}),
+    ]);
+
+    assert.equal(args.orderId.toNumber(), orderId, "EventReview orderId wasn't " + orderId)
+    assert.equal(args.from, accounts[0], "EventReview from wasn't " + accounts[0])
   })
 
   /*** GETTERS ***/
@@ -353,4 +377,39 @@ contract('Osliki', accounts => {
     const count = await osliki.getInvoicesCount()
     assert.equal(count.toNumber(), 3, "count of invoices wasn't 1")
   })
+
+  it("should get stat of user", async () => {
+    const stats = await osliki.getStat(accounts[0])
+
+    assert.equal(stats[0].toNumber(), 1, "ordersCount count wasn't 1")
+    assert.equal(stats[1].toNumber(), 4, "starsSum count wasn't 5")
+    assert.equal(stats[2].toNumber(), 1, "starsCount count wasn't 1")
+
+    const stats3 = await osliki.getStat(accounts[1])
+
+    assert.equal(stats3[0].toNumber(), 1, "ordersCount count wasn't 1")
+    assert.equal(stats3[1].toNumber(), 0, "starsSum count wasn't 0")
+    assert.equal(stats3[2].toNumber(), 0, "starsCount count wasn't 0")
+  })
+
+  it("should get user's orderId by index", async () => {
+    const stats = await osliki.getStat(accounts[4])
+
+    ordersCount = stats[0]
+
+    const orderId = await osliki.getUserOrders(accounts[4], ordersCount-1)
+
+    assert.equal(orderId.toNumber(), 1, "orderId 1")
+  })
+
+  it("should get review", async () => {
+    const stats = await osliki.getStat(accounts[3])
+    ordersCount = stats[0]
+    const orderId = await osliki.getUserOrders(accounts[3], ordersCount-1)
+    const review = await osliki.getReview(accounts[3], orderId)
+
+    assert.equal(review[0].toNumber(), 5, "stars wasn't 5")
+    assert.equal(review[1], 'Excellent!', "text wasn't Excellent!")
+  })
+
 })
