@@ -487,7 +487,7 @@ contract Osliki {
   /**GETTERS*/
 
   /**
-   * @dev Retrieve the count of all orders.
+   * @dev Retrieves the count of all orders.
    * @return Count of orders.
    */
   function getOrdersCount() public view returns (uint) {
@@ -495,7 +495,7 @@ contract Osliki {
   }
 
   /**
-   * @dev Retrieve the count of all offers.
+   * @dev Retrieves the count of all offers.
    * @return Count of offers.
    */
   function getOffersCount() public view returns (uint) {
@@ -503,7 +503,8 @@ contract Osliki {
   }
 
   /**
-   * @dev Retrieve the count of offers for an order.
+   * @dev Retrieves the count of offers for an order.
+   * @param orderId Id of an order.
    * @return Count of offers.
    */
   function getOrderOffersCount(uint orderId) public view returns (uint) {
@@ -511,7 +512,9 @@ contract Osliki {
   }
 
   /**
-   * @dev Retrieve the offer id of an order by index.
+   * @dev Retrieves the offer id of an order by index.
+   * @param orderId Id of the order.
+   * @param index Index of the order.
    * @return Id of the offer.
    */
   function getOrderOffer(uint orderId, uint index) public view returns (uint) {
@@ -519,7 +522,7 @@ contract Osliki {
   }
 
   /**
-   * @dev Retrieve the count of all invoices.
+   * @dev Retrieves the count of all invoices.
    * @return Count of offers.
    */
   function getInvoicesCount() public view returns (uint) {
@@ -527,7 +530,8 @@ contract Osliki {
   }
 
   /**
-   * @dev Retrieve the stats of an user.
+   * @dev Retrieves the stats of an user.
+   * @param user Address of the user.
    * @return ordersCount Count of all orders the user has ever participated.
    * @return rateSum Sum of all ratings.
    * @return rateCount Count of all ratings.
@@ -541,15 +545,23 @@ contract Osliki {
   }
 
   /**
-   * @dev Retrieve the stats of an user.
-   * @return ordersCount Count of all orders the user has ever participated.
-   * @return rateSum Sum of all ratings.
-   * @return rateCount Count of all ratings.
+   * @dev Retrieves the id of an order by user and index.
+   * @param user Address of the user.
+   * @param index Index of the order.
+   * @return Id of the order.
    */
   function getUserOrders(address user, uint index) public view returns(uint) {
       return stats[user].orders[index];
   }
 
+  /**
+   * @dev Retrieves the review of an user given for the order.
+   * @param user Address of the user.
+   * @param orderId Id of the order.
+   * @return rate Given rate.
+   * @return text Review text.
+   * @return createdAt Creation timestamp (seconds).
+   */
   function getReview(address user, uint orderId) public view returns(uint8 rate, string text, uint createdAt) {
       Review memory review = stats[user].reviews[orderId];
 
