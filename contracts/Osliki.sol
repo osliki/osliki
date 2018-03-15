@@ -4,14 +4,20 @@ import '../node_modules/zeppelin-solidity/contracts/math/SafeMath.sol';
 import '../node_modules/zeppelin-solidity/contracts/token/ERC20/ERC20.sol';
 import '../node_modules/zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol';
 
+/**
+ * @title Smart contract Osliki
+ *
+ * @dev Osliki Protocol (OP) is implemented by this smart contract.
+ * @dev This is the core of the Decentralized Osliki Platform (DOP).
+ */
 contract Osliki {
   using SafeMath for uint;
   using SafeERC20 for ERC20;
 
   ERC20 public oslikToken;
   address public oslikiFoundation;
-  uint public constant OSLIKI_FEE = 1; // Only for ETH
-  uint public fees = 0; // To know how much can be withdrawn in favor of the Foundation
+  uint public constant OSLIKI_FEE = 1; // Only for transactions in ETH
+  uint public fees = 0; // To know how much can be withdrawn in favor of the Osliki Foundation
 
   Order[] public orders;
   Offer[] public offers;
@@ -30,13 +36,11 @@ contract Osliki {
   event EventRefund(uint indexed invoiceId);
   event EventReview(uint indexed orderId, address from);
 
-  event EventLog(uint fist, uint sec, uint thrd, uint asa);
-
   struct Order {
     address customer;
-    string from;
-    string to;
-    string params;
+    string from; // geo coords in the format 'lat,lon' or Ethereum address '0x...'
+    string to; // geo coords in the format 'lat,lon' or Ethereum address '0x...'
+    string params; // format 'weight(kg),length(m),width(m),height(m)'
     uint date;
     string message;
 
@@ -77,8 +81,8 @@ contract Osliki {
   }
 
   struct Review {
-    bool lock; // can star only once
-    uint8 stars; // 0-5
+    bool lock; // can rate only once
+    uint8 stars; // 1-5
     string text;
   }
 
@@ -112,9 +116,9 @@ contract Osliki {
   }
 
   function addOrder(
-      string from, // geo coord 'lat,lon' or Ethereum address '0x...'
+      string from,
       string to,
-      string params,  // format 'weight(kg),length(m),width(m),height(m)'
+      string params,
       uint date,
       string message
   ) public {
@@ -152,7 +156,7 @@ contract Osliki {
 
     Order storage order = orders[orderId];
 
-    require(order.date >= now); // spoiled order
+    require(now <= order.date); // expired order
 
     offers.push(Offer({
       carrier: msg.sender,
@@ -177,7 +181,10 @@ contract Osliki {
   ) public {
     Order memory order = orders[orderId];
 
-    require(order.customer != msg.sender); // the customer can't be a carrier at the same time (for stats and reviews)
+    require(
+      order.customer != msg.sender && // the customer can't be a carrier at the same time (for stats and reviews)
+      now <= order.date // expired order
+    );
 
     invoices.push(Invoice({
       sender: msg.sender,
@@ -422,6 +429,15 @@ contract Osliki {
     stat.starsCount++;
 
     emit EventReview(orderId, msg.sender);
+  }
+
+  function withdrawFees() {
+    require(msg.sender == oslikiFoundation);
+    uint
+    fees = 0;
+
+    oslikiFoundation.transfer(fees);
+
   }
 
   /**GETTERS*/
