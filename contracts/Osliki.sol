@@ -14,15 +14,15 @@ contract Osliki {
   using SafeMath for uint;
   using SafeERC20 for ERC20;
 
-  ERC20 public oslikToken;
-  address public oslikiFoundation;
-  uint public constant OSLIKI_FEE = 1; // Only for transactions in ETH
+  ERC20 public oslikToken; // OSLIK Token (OT) address (ERC20 compatible token)
+  address public oslikiFoundation; // Osliki Foundation (OF) address
+  uint public constant OSLIKI_FEE = 1; // Only for transactions in ETH (1%)
   uint public fees = 0; // To know how much can be withdrawn in favor of the Osliki Foundation
 
   Order[] public orders;
   Offer[] public offers;
   Invoice[] public invoices;
-  mapping (address => Stat) internal stats;
+  mapping (address => Stat) internal stats; // Statistics for each user who ever used the platform
 
   enum EnumOrderStatus { New, Process, Fulfilled }
   enum EnumInvoiceStatus { New, Settled, Closed, Refund }
@@ -39,10 +39,10 @@ contract Osliki {
 
   struct Order {
     address customer;
-    string from; // Geo coords in the format 'lat,lon' or Ethereum address '0x...'
-    string to; // Geo coords in the format 'lat,lon' or Ethereum address '0x...'
-    string params; // Format 'weight(kg),length(m),width(m),height(m)'
-    uint expires; // Expiration date in seconds since Unix Epoch
+    string from; // Geographic coordinate in 'lat,lon' format or Ethereum address '0x...'
+    string to; // Geographic coordinate in 'lat,lon' format or Ethereum address '0x...'
+    string params; // Package params in 'weight(kg),length(m),width(m),height(m)' format
+    uint expires; // Expiration date in SECONDS since Unix Epoch
     string message;
 
     uint[] offerIds; // Array of carrier offers
@@ -63,11 +63,11 @@ contract Osliki {
   }
 
   struct Invoice {
-    address sender;
+    address sender; // Carrier
     uint orderId;
-    uint prepayment;
-    uint deposit;
-    uint expires; // Expiration date in seconds since Unix Epoch
+    uint prepayment; // Amount for the prepayment
+    uint deposit; // Amount for the deposit
+    uint expires; // Expiration date in SECONDS since Unix Epoch
     EnumCurrency currency;
     bytes32 depositHash; // Ethereum-SHA-3 (Keccak-256) hash of the deposit key string provided by the customer
     EnumInvoiceStatus status;
@@ -78,8 +78,8 @@ contract Osliki {
   struct Stat {
     uint[] orders;
     uint rateSum;
-    uint rateCount;
-    mapping (uint => Review) reviews; // orderId => Stat
+    uint rateCount; // averageRate = rateSum / rateCount
+    mapping (uint => Review) reviews; // mapping orderId => Stat
   }
 
   struct Review {
@@ -89,17 +89,25 @@ contract Osliki {
     uint createdAt;
   }
 
+  /**
+   * @dev Constructor.
+   * @param _oslikToken OSLIK Token (OT) address (ERC20 compatible token).
+   * @param _oslikiFoundation Address of the Osliki Foundation.
+   */
   function Osliki(
     ERC20 _oslikToken,
     address _oslikiFoundation
   ) public {
 
-    require(address(_oslikToken) != address(0) && _oslikiFoundation != address(0));
+    require(
+      address(_oslikToken) != address(0) &&
+      _oslikiFoundation != address(0)
+    );
 
     oslikToken = _oslikToken;
     oslikiFoundation = _oslikiFoundation;
 
-    // plug for invoices[0] cos default invoiceId in all orders == 0
+    // plug for invoices[0] because default value of the invoiceId in all orders == 0
     invoices.push(Invoice({
       sender: 0x0,
       orderId: 0,
@@ -114,10 +122,23 @@ contract Osliki {
     }));
   }
 
-  function getFee(uint value) public pure returns (uint) {
-    return value.div(100).mul(OSLIKI_FEE);
+  /**
+   * @dev Pure function that calculates the fee of OSLIKI_FEE for transactions in ETH.
+   * @param amount Amount of transaction.
+   * @return Returns the amount of fee.
+   */
+  function getFee(uint amount) public pure returns (uint) {
+    return amount.div(100).mul(OSLIKI_FEE);
   }
 
+  /**
+   * @dev Adds a new package delivery order from the customer.
+   * @param from Geographic coordinate in 'lat,lon' format or Ethereum address '0x...'.
+   * @param to Geographic coordinate in 'lat,lon' format or Ethereum address '0x...'.
+   * @param params Package params in 'weight(kg),length(m),width(m),height(m)' format.
+   * @param expires Expiration date of the order in SECONDS since Unix Epoch.
+   * @param message Free form message text.
+   */
   function addOrder(
       string from,
       string to,
@@ -152,6 +173,11 @@ contract Osliki {
     emit EventOrder(orderId);
   }
 
+  /**
+   * @dev Adds a new offer from the carrier.
+   * @param orderId Id of the order.
+   * @param message Free form message text.
+   */
   function addOffer(
       uint orderId,
       string message
@@ -176,6 +202,14 @@ contract Osliki {
     emit EventOffer(offerId, orderId);
   }
 
+  /**
+   * @dev Adds a new invoice from the carrier.
+   * @param orderId Id of the order.
+   * @param prepayment Amount for the prepayment.
+   * @param deposit Amount for the deposit.
+   * @param expires Expiration date of the invoice in SECONDS since Unix Epoch.
+   * @param currency Invoice currency can be either 0 (ETH) or 1 (OSLIK Token).
+   */
   function addInvoice(
     uint orderId,
     uint prepayment,
