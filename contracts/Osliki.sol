@@ -488,28 +488,50 @@ contract Osliki {
 
   /**
    * @dev Retrieve the count of all orders.
-   * @return Count of orders
+   * @return Count of orders.
    */
   function getOrdersCount() public view returns (uint) {
     return orders.length;
   }
 
+  /**
+   * @dev Retrieve the count of all offers.
+   * @return Count of offers.
+   */
   function getOffersCount() public view returns (uint) {
     return offers.length;
   }
 
+  /**
+   * @dev Retrieve the count of offers for an order.
+   * @return Count of offers.
+   */
   function getOrderOffersCount(uint orderId) public view returns (uint) {
     return orders[orderId].offerIds.length;
   }
 
+  /**
+   * @dev Retrieve the offer id of an order by index.
+   * @return Id of the offer.
+   */
   function getOrderOffer(uint orderId, uint index) public view returns (uint) {
     return orders[orderId].offerIds[index];
   }
 
+  /**
+   * @dev Retrieve the count of all invoices.
+   * @return Count of offers.
+   */
   function getInvoicesCount() public view returns (uint) {
     return invoices.length;
   }
 
+  /**
+   * @dev Retrieve the stats of an user.
+   * @return ordersCount Count of all orders the user has ever participated.
+   * @return rateSum Sum of all ratings.
+   * @return rateCount Count of all ratings.
+   */
   function getStat(address user) public view returns(uint ordersCount, uint rateSum, uint rateCount) {
       Stat memory stat = stats[user];
 
@@ -518,10 +540,14 @@ contract Osliki {
       rateCount = stat.rateCount;
   }
 
-  function getUserOrders(address user, uint index) public view returns(uint orderId) {
-      Stat memory stat = stats[user];
-
-      orderId = stat.orders[index];
+  /**
+   * @dev Retrieve the stats of an user.
+   * @return ordersCount Count of all orders the user has ever participated.
+   * @return rateSum Sum of all ratings.
+   * @return rateCount Count of all ratings.
+   */
+  function getUserOrders(address user, uint index) public view returns(uint) {
+      return stats[user].orders[index];
   }
 
   function getReview(address user, uint orderId) public view returns(uint8 rate, string text, uint createdAt) {
