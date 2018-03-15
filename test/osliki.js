@@ -31,8 +31,8 @@ const EnumCurrency = {
 }
 
 const mockOrders = [
-  ['frommm', 'tooo', '1,2,3,4', 1530707441, 'My message'],
-  ['frommm1', 'tooo1', '5,6,7,8', 1530707441, 'My message1'],
+  ['frommm', 'tooo', '1,2,3,4', 2530707441, 'My message'],
+  ['frommm1', 'tooo1', '5,6,7,8', 2530707441, 'My message1'],
 ]
 
 const mockOffers = [
@@ -41,8 +41,8 @@ const mockOffers = [
 ]
 
 const mockInvoices = [ // prepayment, deposit, valid, currency
-  [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), 9999999, EnumCurrency.OSLIK],
-  [web3.toWei(0.3, 'ether'), web3.toWei(3, 'ether'), 9999999, EnumCurrency.ETH],
+  [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), 2530707441, EnumCurrency.OSLIK],
+  [web3.toWei(0.3, 'ether'), web3.toWei(3, 'ether'), 2530707441, EnumCurrency.ETH],
 ]
 
 const depositHashes = [
@@ -53,12 +53,14 @@ contract('Osliki', accounts => {
   let osliki;
   let oslikToken;
   let oslikTokenFounder;
+  let oslikiFoundation;
 
   it("should set contract's instances", async () => {
     osliki = await Osliki.deployed()
     const oslikTokenAddr = await osliki.oslikToken()
     oslikToken = await OslikToken.at(oslikTokenAddr)
     oslikTokenFounder = await oslikToken.founder()
+    oslikiFoundation = await osliki.oslikiFoundation()
   })
 
   it("should add new orders", async () => {
@@ -316,6 +318,15 @@ contract('Osliki', accounts => {
     assert.equal(args.from, accounts[0], "EventReview from wasn't " + accounts[0])
   })
 
+  it("should withdrw fee", async () => {
+    const fees = await osliki.fees()
+    const res = await osliki.withdrawFees({from: oslikiFoundation})
+
+    assert.equal(findEvent('EventWithdrawFees', res.logs).args.fees.toNumber(),
+      fees,
+      "EventWithdrawFees fees wasn't " + fees)
+  })
+return
   /*** GETTERS ***/
   it("should get order by id", async () => {
     let order = await osliki.orders(1)

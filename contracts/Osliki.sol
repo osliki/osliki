@@ -35,18 +35,19 @@ contract Osliki {
   event EventFulfill(uint indexed orderId);
   event EventRefund(uint indexed invoiceId);
   event EventReview(uint indexed orderId, address from);
+  event EventWithdrawFees(uint fees);
 
   struct Order {
     address customer;
-    string from; // geo coords in the format 'lat,lon' or Ethereum address '0x...'
-    string to; // geo coords in the format 'lat,lon' or Ethereum address '0x...'
-    string params; // format 'weight(kg),length(m),width(m),height(m)'
-    uint date;
+    string from; // Geo coords in the format 'lat,lon' or Ethereum address '0x...'
+    string to; // Geo coords in the format 'lat,lon' or Ethereum address '0x...'
+    string params; // Format 'weight(kg),length(m),width(m),height(m)'
+    uint expires; // Expiration date
     string message;
 
-    uint[] offerIds;
+    uint[] offerIds; // Array of carrier offers
 
-    address carrier;
+    address carrier; // Chosen carrier
     uint invoiceId;
 
     EnumOrderStatus status;
@@ -65,7 +66,7 @@ contract Osliki {
     uint orderId;
     uint prepayment;
     uint deposit;
-    uint valid;
+    uint expires; // Expiration date
     EnumCurrency currency;
     bytes32 depositHash;
     EnumInvoiceStatus status;
@@ -84,6 +85,7 @@ contract Osliki {
     bool lock; // can rate only once
     uint8 stars; // 1-5
     string text;
+    uint createdAt;
   }
 
   function Osliki(
@@ -102,7 +104,7 @@ contract Osliki {
       orderId: 0,
       prepayment: 0,
       deposit: 0,
-      valid: 0,
+      expires: 0,
       currency: EnumCurrency.ETH,
       depositHash: 0x0,
       status: EnumInvoiceStatus.New,
@@ -119,7 +121,7 @@ contract Osliki {
       string from,
       string to,
       string params,
-      uint date,
+      uint expires,
       string message
   ) public {
 
@@ -128,7 +130,7 @@ contract Osliki {
       from: from,
       to: to,
       params: params,
-      date: date,
+      expires: expires,
       message: message,
 
       offerIds: new uint[](0),
@@ -156,7 +158,7 @@ contract Osliki {
 
     Order storage order = orders[orderId];
 
-    require(now <= order.date); // expired order
+    require(now <= order.expires); // expired order
 
     offers.push(Offer({
       carrier: msg.sender,
@@ -176,14 +178,14 @@ contract Osliki {
     uint orderId,
     uint prepayment,
     uint deposit,
-    uint valid,
+    uint expires,
     EnumCurrency currency
   ) public {
     Order memory order = orders[orderId];
 
     require(
       order.customer != msg.sender && // the customer can't be a carrier at the same time (for stats and reviews)
-      now <= order.date // expired order
+      now <= order.expires // expired order
     );
 
     invoices.push(Invoice({
@@ -191,7 +193,7 @@ contract Osliki {
       orderId: orderId,
       prepayment: prepayment,
       deposit: deposit,
-      valid: valid,
+      expires: expires,
       currency: currency,
       depositHash: '',
       status: EnumInvoiceStatus.New,
@@ -218,7 +220,7 @@ contract Osliki {
     address addressThis = address(this);
 
     require(
-      now <= invoice.createdAt.add(invoice.valid)  && // can't pay invoices in a few years and change the statuses
+      now <= invoice.expires  && // can't pay invoices in a few years and change the statuses
 
       order.carrier == 0 && // carrier haven't been assigned yet
       order.invoiceId == 0 && // double check, so impossible to change carriers in the middle of the process
@@ -408,14 +410,11 @@ contract Osliki {
 
     Order storage order = orders[orderId];
 
-    address customer = order.customer;
-    address carrier = order.carrier;
-
-    Stat storage stat = stats[msg.sender == customer ? carrier : customer];
+    Stat storage stat = stats[msg.sender == order.customer ? order.carrier : order.customer];
     Review storage review = stat.reviews[orderId];
 
     require(
-      (msg.sender == customer || msg.sender == carrier) &&
+      (msg.sender == order.customer || msg.sender == order.carrier) &&
       (order.status == EnumOrderStatus.Process || order.status == EnumOrderStatus.Fulfilled) &&
       !review.lock &&
       (stars > 0 && stars <= 5)
@@ -424,6 +423,7 @@ contract Osliki {
     review.lock = true;
     review.stars = stars;
     review.text = text;
+    review.createdAt = now;
 
     stat.starsSum = stat.starsSum.add(stars);
     stat.starsCount++;
@@ -431,13 +431,16 @@ contract Osliki {
     emit EventReview(orderId, msg.sender);
   }
 
-  function withdrawFees() {
+  function withdrawFees() public {
     require(msg.sender == oslikiFoundation);
-    uint
+
+    uint feesToWithdraw = fees;
+
     fees = 0;
 
-    oslikiFoundation.transfer(fees);
+    oslikiFoundation.transfer(feesToWithdraw);
 
+    emit EventWithdrawFees(feesToWithdraw);
   }
 
   /**GETTERS*/
@@ -475,11 +478,12 @@ contract Osliki {
       orderId = stat.orders[index];
   }
 
-  function getReview(address user, uint orderId) public view returns(uint8 stars, string text) {
+  function getReview(address user, uint orderId) public view returns(uint8 stars, string text, uint createdAt) {
       Review memory review = stats[user].reviews[orderId];
 
       stars = review.stars;
       text = review.text;
+      createdAt = review.createdAt;
   }
 
 }
