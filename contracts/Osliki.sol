@@ -130,7 +130,7 @@ contract Osliki {
   }
 
   /**
-   * @dev Adds a new package delivery order from the customer.
+   * @dev A customer adds a new package delivery order.
    * @param from Geographic coordinate in 'lat,lon' format or Ethereum address '0x...'.
    * @param to Geographic coordinate in 'lat,lon' format or Ethereum address '0x...'.
    * @param params Package params in 'weight(kg),length(m),width(m),height(m)' format.
@@ -172,7 +172,7 @@ contract Osliki {
   }
 
   /**
-   * @dev Adds a new offer from the carrier.
+   * @dev A carrier adds a new offer.
    * @param orderId Id of the order.
    * @param message Free form message text.
    */
@@ -201,7 +201,7 @@ contract Osliki {
   }
 
   /**
-   * @dev Adds a new invoice from the carrier.
+   * @dev The carrier adds a new invoice.
    * @param orderId Id of the order.
    * @param prepayment Amount for the prepayment.
    * @param deposit Amount for the deposit.
@@ -238,6 +238,11 @@ contract Osliki {
     emit EventInvoice(invoiceId, orderId);
   }
 
+  /**
+   * @dev The customer pays the invoice.
+   * @param invoiceId Id of the invoice.
+   * @param depositHash Ethereum-SHA-3 (Keccak-256) hash of the deposit key string provided by the customer.
+   */
   function pay(
     uint invoiceId,
     bytes32 depositHash
@@ -260,7 +265,6 @@ contract Osliki {
 
     require(invoice.sender != msg.sender); // ??? double check, the customer can't be a carrier at the same time (for stats and reviews)
     require(invoice.status == EnumInvoiceStatus.New); // can't pay already paid invoices
-
 
     // in case of any throws the contract's state will be reverted
     // prevent re-entrancy
@@ -294,9 +298,8 @@ contract Osliki {
 
       uint balanceAfter = addressThis.balance;
       assert(balanceAfter == balanceBefore.sub(prepayment).add(fee)); // msg.value is added to balanceBefore
-    }
 
-    if (invoice.currency == EnumCurrency.OSLIK) { // no fee
+    } else if (invoice.currency == EnumCurrency.OSLIK) { // no fee
       require(msg.value == 0); // prevent loss of ETH
 
       uint balanceOfBefore = oslikToken.balanceOf(addressThis);
@@ -316,6 +319,11 @@ contract Osliki {
     emit EventPayment(invoiceId);
   }
 
+  /**
+   * @dev The carrier fulfills the order and withdraws deposit.
+   * @param orderId Id of the invoice.
+   * @param depositKey Deposit key string provided by the customer.
+   */
   function fulfill(
     uint orderId,
     string depositKey
@@ -353,13 +361,11 @@ contract Osliki {
 
         uint balanceAfter = addressThis.balance;
         assert(balanceAfter == balanceBefore.sub(deposit).add(fee));
-      }
 
-      if (invoice.currency == EnumCurrency.OSLIK) { // no fee
+      } else if (invoice.currency == EnumCurrency.OSLIK) { // no fee
         uint balanceOfBefore = oslikToken.balanceOf(addressThis);
 
-        oslikToken.safeApprove(addressThis, deposit);
-        oslikToken.safeTransferFrom(addressThis, invoice.sender, deposit);
+        oslikToken.safeTransfer(invoice.sender, deposit);
 
         uint balanceOfAfter = oslikToken.balanceOf(addressThis);
         assert(balanceOfAfter == balanceOfBefore.sub(deposit));
@@ -369,6 +375,10 @@ contract Osliki {
     emit EventFulfill(orderId);
   }
 
+  /**
+   * @dev The carrier refunds the amount paid by the customer for the order.
+   * @param invoiceId Id of the invoice.
+   */
   function refund(
     uint invoiceId
   ) public payable {
@@ -405,9 +415,8 @@ contract Osliki {
         uint balanceAfter = addressThis.balance;
         assert(balanceAfter == balanceBefore.sub(amount));
       }
-    }
 
-    if (invoice.currency == EnumCurrency.OSLIK) {
+    } else if (invoice.currency == EnumCurrency.OSLIK) {
       require(msg.value == 0); // prevent loss of ETH
 
       uint balanceOfBefore = oslikToken.balanceOf(addressThis);
@@ -417,9 +426,7 @@ contract Osliki {
       }
 
       if (amountFromContract != 0) {
-        oslikToken.safeApprove(addressThis, amountFromContract);
-
-        oslikToken.safeTransferFrom(addressThis, order.customer, amountFromContract);
+        oslikToken.safeTransfer(order.customer, amountFromContract);
       }
 
       uint balanceOfAfter = oslikToken.balanceOf(addressThis);
@@ -429,6 +436,12 @@ contract Osliki {
     emit EventRefund(invoiceId);
   }
 
+  /**
+   * @dev The parties leave comments and ratings about their experience.
+   * @param orderId Id of the order.
+   * @param rate Rating form 1-5.
+   * @param text Free form text.
+   */
   function addReview(
     uint orderId,
     uint8 rate,
@@ -456,6 +469,9 @@ contract Osliki {
     emit EventReview(orderId, msg.sender);
   }
 
+  /**
+   * @dev Allows to withdraw the collected fees in favor of Osliki Foundation.
+   */
   function withdrawFees() public {
     require(msg.sender == oslikiFoundation && fees != 0);
 
@@ -469,6 +485,11 @@ contract Osliki {
   }
 
   /**GETTERS*/
+
+  /**
+   * @dev Retrieve the count of all orders.
+   * @return Count of orders
+   */
   function getOrdersCount() public view returns (uint) {
     return orders.length;
   }
