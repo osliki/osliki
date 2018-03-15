@@ -326,7 +326,7 @@ contract('Osliki', accounts => {
       fees,
       "EventWithdrawFees fees wasn't " + fees)
   })
-return
+
   /*** GETTERS ***/
   it("should get order by id", async () => {
     let order = await osliki.orders(1)
@@ -348,7 +348,7 @@ return
     let offer = await osliki.offers(1)
 
     offer = allBigNumberToNumber(offer)
-
+    offer.splice(3)
     assert.deepEqual(offer, [accounts[4], 1, ...mockOffers[1]], "got wrong offer")
   })
 
@@ -393,14 +393,14 @@ return
     const stats = await osliki.getStat(accounts[0])
 
     assert.equal(stats[0].toNumber(), 1, "ordersCount count wasn't 1")
-    assert.equal(stats[1].toNumber(), 4, "starsSum count wasn't 5")
-    assert.equal(stats[2].toNumber(), 1, "starsCount count wasn't 1")
+    assert.equal(stats[1].toNumber(), 4, "rateSum count wasn't 5")
+    assert.equal(stats[2].toNumber(), 1, "rateCount count wasn't 1")
 
     const stats3 = await osliki.getStat(accounts[1])
 
     assert.equal(stats3[0].toNumber(), 1, "ordersCount count wasn't 1")
-    assert.equal(stats3[1].toNumber(), 0, "starsSum count wasn't 0")
-    assert.equal(stats3[2].toNumber(), 0, "starsCount count wasn't 0")
+    assert.equal(stats3[1].toNumber(), 0, "rateSum count wasn't 0")
+    assert.equal(stats3[2].toNumber(), 0, "rateCount count wasn't 0")
   })
 
   it("should get user's orderId by index", async () => {
@@ -419,7 +419,7 @@ return
     const orderId = await osliki.getUserOrders(accounts[3], ordersCount-1)
     const review = await osliki.getReview(accounts[3], orderId)
 
-    assert.equal(review[0].toNumber(), 5, "stars wasn't 5")
+    assert.equal(review[0].toNumber(), 5, "rate wasn't 5")
     assert.equal(review[1], 'Excellent!', "text wasn't Excellent!")
   })
 

@@ -42,7 +42,7 @@ contract Osliki {
     string from; // Geo coords in the format 'lat,lon' or Ethereum address '0x...'
     string to; // Geo coords in the format 'lat,lon' or Ethereum address '0x...'
     string params; // Format 'weight(kg),length(m),width(m),height(m)'
-    uint expires; // Expiration date
+    uint expires; // Expiration date in seconds since Unix Epoch
     string message;
 
     uint[] offerIds; // Array of carrier offers
@@ -59,6 +59,7 @@ contract Osliki {
     address carrier;
     uint orderId;
     string message;
+    uint createdAt;
   }
 
   struct Invoice {
@@ -66,9 +67,9 @@ contract Osliki {
     uint orderId;
     uint prepayment;
     uint deposit;
-    uint expires; // Expiration date
+    uint expires; // Expiration date in seconds since Unix Epoch
     EnumCurrency currency;
-    bytes32 depositHash;
+    bytes32 depositHash; // Ethereum-SHA-3 (Keccak-256) hash of the deposit key string provided by the customer
     EnumInvoiceStatus status;
     uint createdAt;
     uint updatedAt;
@@ -76,14 +77,14 @@ contract Osliki {
 
   struct Stat {
     uint[] orders;
-    uint starsSum;
-    uint starsCount;
+    uint rateSum;
+    uint rateCount;
     mapping (uint => Review) reviews; // orderId => Stat
   }
 
   struct Review {
-    bool lock; // can rate only once
-    uint8 stars; // 1-5
+    bool lock; // Can rate only once
+    uint8 rate; // Range between 1-5
     string text;
     uint createdAt;
   }
@@ -163,7 +164,8 @@ contract Osliki {
     offers.push(Offer({
       carrier: msg.sender,
       orderId: orderId,
-      message: message
+      message: message,
+      createdAt: now
     }));
 
     uint offerId = offers.length - 1;
@@ -404,7 +406,7 @@ contract Osliki {
 
   function addReview(
     uint orderId,
-    uint8 stars,
+    uint8 rate,
     string text
   ) public {
 
@@ -417,22 +419,22 @@ contract Osliki {
       (msg.sender == order.customer || msg.sender == order.carrier) &&
       (order.status == EnumOrderStatus.Process || order.status == EnumOrderStatus.Fulfilled) &&
       !review.lock &&
-      (stars > 0 && stars <= 5)
+      (rate > 0 && rate <= 5)
     );
 
     review.lock = true;
-    review.stars = stars;
+    review.rate = rate;
     review.text = text;
     review.createdAt = now;
 
-    stat.starsSum = stat.starsSum.add(stars);
-    stat.starsCount++;
+    stat.rateSum = stat.rateSum.add(rate);
+    stat.rateCount++;
 
     emit EventReview(orderId, msg.sender);
   }
 
   function withdrawFees() public {
-    require(msg.sender == oslikiFoundation);
+    require(msg.sender == oslikiFoundation && fees != 0);
 
     uint feesToWithdraw = fees;
 
@@ -464,12 +466,12 @@ contract Osliki {
     return invoices.length;
   }
 
-  function getStat(address user) public view returns(uint ordersCount, uint starsSum, uint starsCount) {
+  function getStat(address user) public view returns(uint ordersCount, uint rateSum, uint rateCount) {
       Stat memory stat = stats[user];
 
       ordersCount = stat.orders.length;
-      starsSum = stat.starsSum;
-      starsCount = stat.starsCount;
+      rateSum = stat.rateSum;
+      rateCount = stat.rateCount;
   }
 
   function getUserOrders(address user, uint index) public view returns(uint orderId) {
@@ -478,10 +480,10 @@ contract Osliki {
       orderId = stat.orders[index];
   }
 
-  function getReview(address user, uint orderId) public view returns(uint8 stars, string text, uint createdAt) {
+  function getReview(address user, uint orderId) public view returns(uint8 rate, string text, uint createdAt) {
       Review memory review = stats[user].reviews[orderId];
 
-      stars = review.stars;
+      rate = review.rate;
       text = review.text;
       createdAt = review.createdAt;
   }
