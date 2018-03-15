@@ -99,10 +99,8 @@ contract Osliki {
     address _oslikiFoundation
   ) public {
 
-    require(
-      address(_oslikToken) != address(0) &&
-      _oslikiFoundation != address(0)
-    );
+    require(address(_oslikToken) != address(0));
+    require(_oslikiFoundation != address(0));
 
     oslikToken = _oslikToken;
     oslikiFoundation = _oslikiFoundation;
@@ -219,10 +217,8 @@ contract Osliki {
   ) public {
     Order memory order = orders[orderId];
 
-    require(
-      order.customer != msg.sender && // the customer can't be a carrier at the same time (for stats and reviews)
-      now <= order.expires // expired order
-    );
+    require(order.customer != msg.sender); // the customer can't be a carrier at the same time (for stats and reviews)
+    require(now <= order.expires); // expired order
 
     invoices.push(Invoice({
       sender: msg.sender,
@@ -255,17 +251,16 @@ contract Osliki {
     uint amount = prepayment.add(deposit);
     address addressThis = address(this);
 
-    require(
-      now <= invoice.expires  && // can't pay invoices in a few years and change the statuses
+    require(now <= invoice.expires); // can't pay invoices in a few years and change the statuses
 
-      order.carrier == 0 && // carrier haven't been assigned yet
-      order.invoiceId == 0 && // double check, so impossible to change carriers in the middle of the process
-      order.customer == msg.sender && // can't pay for someone else's orders
-      order.status == EnumOrderStatus.New && // can't pay already processed orders
+    require(order.carrier == 0); // carrier haven't been assigned yet
+    require(order.invoiceId == 0); // double check, so impossible to change carriers in the middle of the process
+    require(order.customer == msg.sender); // can't pay for someone else's orders
+    require(order.status == EnumOrderStatus.New); // can't pay already processed orders
 
-      invoice.sender != msg.sender && // ??? double check, the customer can't be a carrier at the same time (for stats and reviews)
-      invoice.status == EnumInvoiceStatus.New // can't pay already paid invoices
-    );
+    require(invoice.sender != msg.sender); // ??? double check, the customer can't be a carrier at the same time (for stats and reviews)
+    require(invoice.status == EnumInvoiceStatus.New); // can't pay already paid invoices
+
 
     // in case of any throws the contract's state will be reverted
     // prevent re-entrancy
@@ -331,13 +326,11 @@ contract Osliki {
 
     bytes32 defaultHash;
 
-    require(
-      order.carrier == msg.sender && // only carrier
-      invoice.sender == msg.sender && // just in case
-      order.status == EnumOrderStatus.Process &&
-      invoice.status == EnumInvoiceStatus.Settled && // double check
-      (invoice.depositHash == defaultHash || invoice.depositHash == keccak256(depositKey))// depositHash can be empty
-    );
+    require(order.carrier == msg.sender); // only carrier
+    require(invoice.sender == msg.sender); // just in case
+    require(order.status == EnumOrderStatus.Process);
+    require(invoice.status == EnumInvoiceStatus.Settled); // double check
+    require(invoice.depositHash == defaultHash || invoice.depositHash == keccak256(depositKey)); // depositHash can be empty
 
     order.status = EnumOrderStatus.Fulfilled;
     order.updatedAt = now;
@@ -383,10 +376,8 @@ contract Osliki {
     Invoice storage invoice = invoices[invoiceId];
     Order storage order = orders[invoice.orderId];
 
-    require(
-      invoice.sender == msg.sender &&
-      (invoice.status == EnumInvoiceStatus.Settled || invoice.status == EnumInvoiceStatus.Closed)
-    );
+    require(invoice.sender == msg.sender);
+    require(invoice.status == EnumInvoiceStatus.Settled || invoice.status == EnumInvoiceStatus.Closed);
 
     // if (invoice.status == EnumInvoiceStatus.Settled)
     uint amountFromCarrier = invoice.prepayment;
@@ -444,17 +435,15 @@ contract Osliki {
     string text
   ) public {
 
-    Order storage order = orders[orderId];
+    Order memory order = orders[orderId];
 
     Stat storage stat = stats[msg.sender == order.customer ? order.carrier : order.customer];
     Review storage review = stat.reviews[orderId];
 
-    require(
-      (msg.sender == order.customer || msg.sender == order.carrier) &&
-      (order.status == EnumOrderStatus.Process || order.status == EnumOrderStatus.Fulfilled) &&
-      !review.lock &&
-      (rate > 0 && rate <= 5)
-    );
+    require(msg.sender == order.customer || msg.sender == order.carrier);
+    require(order.status == EnumOrderStatus.Process || order.status == EnumOrderStatus.Fulfilled);
+    require(!review.lock);
+    require(1 <= rate && rate <= 5);
 
     review.lock = true;
     review.rate = rate;
