@@ -1,8 +1,8 @@
 pragma solidity ^0.4.21;
 
-import '../node_modules/zeppelin-solidity/contracts/math/SafeMath.sol';
-import '../node_modules/zeppelin-solidity/contracts/token/ERC20/ERC20.sol';
-import '../node_modules/zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol';
+import "../node_modules/zeppelin-solidity/contracts/math/SafeMath.sol";
+import "../node_modules/zeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "../node_modules/zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
 
 /**
  * @title Smart contract Osliki
@@ -28,14 +28,15 @@ contract Osliki {
   enum EnumInvoiceStatus { New, Settled, Closed, Refund }
   enum EnumCurrency { ETH, OSLIK }
 
-  event EventOrder(uint orderId);
-  event EventOffer(uint offerId, uint indexed orderId);
-  event EventInvoice(uint invoiceId, uint indexed orderId);
-  event EventPayment(uint indexed invoiceId);
-  event EventFulfill(uint indexed orderId);
-  event EventRefund(uint indexed invoiceId);
-  event EventReview(uint indexed orderId, address from);
-  event EventWithdrawFees(uint fees);
+  event EventOrder(uint orderId); // customer
+  event EventOffer(uint offerId, uint indexed orderId); // carrier
+  event EventRespond(uint indexed offerId); // customer
+  event EventInvoice(uint invoiceId, uint indexed orderId); // carrier
+  event EventPayment(uint indexed invoiceId); // customer
+  event EventFulfill(uint indexed orderId); // carrier
+  event EventRefund(uint indexed invoiceId); // carrier
+  event EventReview(uint indexed orderId, address from); // customer || carrier
+  event EventWithdrawFees(uint fees); // oslikiFoundation
 
   struct Order {
     address customer;
@@ -59,7 +60,9 @@ contract Osliki {
     address carrier;
     uint orderId;
     string message;
+    string respond;
     uint createdAt;
+    uint updatedAt;
   }
 
   struct Invoice {
@@ -172,7 +175,7 @@ contract Osliki {
   }
 
   /**
-   * @dev A carrier adds a new offer.
+   * @dev A carrier adds a new offer. (optional)
    * @param orderId Id of the order.
    * @param message Free form message text.
    */
@@ -189,7 +192,9 @@ contract Osliki {
       carrier: msg.sender,
       orderId: orderId,
       message: message,
-      createdAt: now
+      respond: "",
+      createdAt: now,
+      updatedAt: now
     }));
 
     uint offerId = offers.length - 1;
@@ -198,6 +203,29 @@ contract Osliki {
     order.updatedAt = now;
 
     emit EventOffer(offerId, orderId);
+  }
+
+  /**
+   * @dev The customer respond to the offer. (optional)
+   * @param offerId Id of the offer.
+   * @param message Free form message text.
+   */
+  function respond(
+      uint offerId,
+      string message
+  ) public {
+
+    Offer storage offer = offers[offerId];
+    Order memory order = orders[offer.orderId];
+
+    require(msg.sender == order.customer);
+    require(bytes(message).length != 0);
+    require(bytes(offer.respond).length == 0); // can respond only once
+
+    offer.respond = message;
+    offer.updatedAt = now;
+
+    emit EventRespond(offerId);
   }
 
   /**
@@ -227,7 +255,7 @@ contract Osliki {
       deposit: deposit,
       expires: expires,
       currency: currency,
-      depositHash: '',
+      depositHash: 0x0,
       status: EnumInvoiceStatus.New,
       createdAt: now,
       updatedAt: now
@@ -300,6 +328,7 @@ contract Osliki {
       assert(balanceAfter == balanceBefore.sub(prepayment).add(fee)); // msg.value is added to balanceBefore
 
     } else if (invoice.currency == EnumCurrency.OSLIK) { // no fee
+
       require(msg.value == 0); // prevent loss of ETH
 
       uint balanceOfBefore = oslikToken.balanceOf(addressThis);
@@ -320,7 +349,7 @@ contract Osliki {
   }
 
   /**
-   * @dev The carrier fulfills the order and withdraws deposit.
+   * @dev The carrier fulfills the order and withdraws deposit (if any).
    * @param orderId Id of the invoice.
    * @param depositKey Deposit key string provided by the customer.
    */
@@ -332,13 +361,11 @@ contract Osliki {
     Order storage order = orders[orderId];
     Invoice storage invoice = invoices[order.invoiceId];
 
-    bytes32 defaultHash;
-
     require(order.carrier == msg.sender); // only carrier
     require(invoice.sender == msg.sender); // just in case
     require(order.status == EnumOrderStatus.Process);
     require(invoice.status == EnumInvoiceStatus.Settled); // double check
-    require(invoice.depositHash == defaultHash || invoice.depositHash == keccak256(depositKey)); // depositHash can be empty
+    require(invoice.depositHash == 0x0 || invoice.depositHash == keccak256(depositKey)); // depositHash can be empty
 
     order.status = EnumOrderStatus.Fulfilled;
     order.updatedAt = now;
@@ -363,6 +390,7 @@ contract Osliki {
         assert(balanceAfter == balanceBefore.sub(deposit).add(fee));
 
       } else if (invoice.currency == EnumCurrency.OSLIK) { // no fee
+
         uint balanceOfBefore = oslikToken.balanceOf(addressThis);
 
         oslikToken.safeTransfer(invoice.sender, deposit);
@@ -417,6 +445,7 @@ contract Osliki {
       }
 
     } else if (invoice.currency == EnumCurrency.OSLIK) {
+
       require(msg.value == 0); // prevent loss of ETH
 
       uint balanceOfBefore = oslikToken.balanceOf(addressThis);
@@ -569,5 +598,4 @@ contract Osliki {
       text = review.text;
       createdAt = review.createdAt;
   }
-
 }

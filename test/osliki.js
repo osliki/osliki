@@ -49,6 +49,10 @@ const depositHashes = [
   ['1234', web3.sha3('1234')]
 ]
 
+/*
+accounts[0](customer OSLIKI) <=> accounts[3](carrier) | orderId = 0, invoiceId = 1
+accounts[1](customer ETH) <=> accounts[4](carrier) | orderId = 1, invoiceId = 2
+*/
 contract('Osliki', accounts => {
   let osliki;
   let oslikToken;
@@ -81,6 +85,16 @@ contract('Osliki', accounts => {
     assert.equal(res1.logs[0].args.offerId.toNumber(), 1, "offerId wasn't 1")
     assert.equal(res1.logs[0].args.orderId.toNumber(), 1, "orderId wasn't 1")
   })
+
+  it("should add a new respons to the offer", async () => {
+    const offerId = 1
+    const res = await osliki.respond(offerId, 'respond to the offerId=1', {from: accounts[1]})
+
+    await verifyThrows(async () => await osliki.respond(offerId, 'second attempt to respond', {from: accounts[1]}), /revert/)
+
+    assert.equal(res.logs[0].args.offerId.toNumber(), offerId, "offerId wasn't " + offerId)
+  })
+
 
   it("should add new invoices", async () => {
     const res0 = await osliki.addInvoice(0, ...mockInvoices[0], {from: accounts[3]})
@@ -348,8 +362,8 @@ contract('Osliki', accounts => {
     let offer = await osliki.offers(1)
 
     offer = allBigNumberToNumber(offer)
-    offer.splice(3)
-    assert.deepEqual(offer, [accounts[4], 1, ...mockOffers[1]], "got wrong offer")
+    offer.splice(4)
+    assert.deepEqual(offer, [accounts[4], 1, ...mockOffers[1], 'respond to the offerId=1'], "got wrong offer")
   })
 
   it("should get invoice by id", async () => {
