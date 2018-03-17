@@ -60,7 +60,7 @@ contract Osliki {
     address carrier;
     uint orderId;
     string message;
-    string respond;
+    string respond; // Client respond
     uint createdAt;
     uint updatedAt;
   }
@@ -70,8 +70,8 @@ contract Osliki {
     uint orderId;
     uint prepayment; // Amount for the prepayment
     uint deposit; // Amount for the deposit
+    EnumCurrency currency; // ETH or OSLIK (no fee)
     uint expires; // Expiration date in SECONDS since Unix Epoch
-    EnumCurrency currency;
     bytes32 depositHash; // Ethereum-SHA-3 (Keccak-256) hash of the deposit key string provided by the customer
     EnumInvoiceStatus status;
     uint createdAt;
@@ -86,7 +86,6 @@ contract Osliki {
   }
 
   struct Review {
-    bool lock; // Can rate only once
     uint8 rate; // Range between 1-5
     string text;
     uint createdAt;
@@ -108,14 +107,14 @@ contract Osliki {
     oslikToken = _oslikToken;
     oslikiFoundation = _oslikiFoundation;
 
-    // plug for invoices[0] because default value of the invoiceId in all orders == 0
+    // because default value of the invoiceId in all orders == 0
     invoices.push(Invoice({
       sender: 0x0,
       orderId: 0,
       prepayment: 0,
       deposit: 0,
-      expires: 0,
       currency: EnumCurrency.ETH,
+      expires: 0,
       depositHash: 0x0,
       status: EnumInvoiceStatus.New,
       createdAt: now,
@@ -219,8 +218,8 @@ contract Osliki {
     Order memory order = orders[offer.orderId];
 
     require(msg.sender == order.customer);
-    require(bytes(message).length != 0);
     require(bytes(offer.respond).length == 0); // can respond only once
+    require(bytes(message).length != 0);
 
     offer.respond = message;
     offer.updatedAt = now;
@@ -240,9 +239,10 @@ contract Osliki {
     uint orderId,
     uint prepayment,
     uint deposit,
-    uint expires,
-    EnumCurrency currency
+    EnumCurrency currency,
+    uint expires
   ) public {
+
     Order memory order = orders[orderId];
 
     require(order.customer != msg.sender); // the customer can't be a carrier at the same time (for stats and reviews)
@@ -253,8 +253,8 @@ contract Osliki {
       orderId: orderId,
       prepayment: prepayment,
       deposit: deposit,
-      expires: expires,
       currency: currency,
+      expires: expires,
       depositHash: 0x0,
       status: EnumInvoiceStatus.New,
       createdAt: now,
@@ -484,10 +484,9 @@ contract Osliki {
 
     require(msg.sender == order.customer || msg.sender == order.carrier);
     require(order.status == EnumOrderStatus.Process || order.status == EnumOrderStatus.Fulfilled);
-    require(!review.lock);
+    require(review.rate == 0); // can rate only once
     require(1 <= rate && rate <= 5);
 
-    review.lock = true;
     review.rate = rate;
     review.text = text;
     review.createdAt = now;

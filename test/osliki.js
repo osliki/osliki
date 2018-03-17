@@ -41,8 +41,8 @@ const mockOffers = [
 ]
 
 const mockInvoices = [ // prepayment, deposit, valid, currency
-  [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), 2530707441, EnumCurrency.OSLIK],
-  [web3.toWei(0.3, 'ether'), web3.toWei(3, 'ether'), 2530707441, EnumCurrency.ETH],
+  [web3.toWei(0.7, 'ether'), web3.toWei(7, 'ether'), EnumCurrency.OSLIK, 2530707441],
+  [web3.toWei(0.3, 'ether'), web3.toWei(3, 'ether'), EnumCurrency.ETH, 2530707441],
 ]
 
 const depositHashes = [
@@ -94,7 +94,6 @@ contract('Osliki', accounts => {
 
     assert.equal(res.logs[0].args.offerId.toNumber(), offerId, "offerId wasn't " + offerId)
   })
-
 
   it("should add new invoices", async () => {
     const res0 = await osliki.addInvoice(0, ...mockInvoices[0], {from: accounts[3]})
@@ -308,7 +307,6 @@ contract('Osliki', accounts => {
     accounts[0](customer OSLIKI) <=> accounts[3](carrier) | orderId = 0, invoiceId = 1
     accounts[1](customer ETH) <=> accounts[4](carrier) | orderId = 1, invoiceId = 2
   ***/
-
   it("should add reviews", async () => {
     const orderId = 0;
     const orderId1 = 1;
