@@ -8,7 +8,7 @@ import "../node_modules/zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
  * @title Smart contract Osliki
  *
  * @dev Osliki Protocol (OP) is implemented by this smart contract.
- * @dev This is the core of the Decentralized Osliki Platform (DOP).
+ * @dev This is the core of the Decentralized Platform Osliki (DPO).
  */
 contract Osliki {
   using SafeMath for uint;
@@ -16,7 +16,7 @@ contract Osliki {
 
   ERC20 public oslikToken; // OSLIK Token (OT) address (ERC20 compatible token)
   address public oslikiFoundation; // Osliki Foundation (OF) address
-  uint public constant OSLIKI_FEE = 1; // Only for transactions in ETH (1%)
+  uint8 public constant OSLIKI_FEE = 1; // Only for transactions in ETH (1%)
   uint public fees = 0; // To know how much can be withdrawn in favor of the Osliki Foundation
 
   Order[] public orders;

@@ -14,7 +14,7 @@ contract OslikToken is StandardToken {
   string public constant symbol = 'OSLIK'; // solium-disable-line uppercase
   uint8 public constant decimals = 18; // solium-disable-line uppercase
 
-  uint public constant INITIAL_SUPPLY = 10000 * (10 ** uint(decimals));
+  uint public constant INITIAL_SUPPLY = 10**8 * (10 ** uint(decimals));
 
   address public founder;
 
