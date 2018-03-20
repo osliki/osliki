@@ -1,7 +1,7 @@
 {
   "name": "osliki",
   "version": "1.0.0",
-  "description": "Decentralized Package Delivery Platform",
+  "description": "Osliki - Decentralized Package Delivery Platform",
   "main": "truffle-config.js",
   "directories": {
     "test": "test"
@@ -11,14 +11,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/osliki-foundation/osliki.git"
+    "url": "git+https://github.com/osliki/osliki.git"
   },
   "author": "Artod",
   "license": "",
   "bugs": {
-    "url": "https://github.com/osliki-foundation/osliki/issues"
+    "url": "https://github.com/osliki/osliki/issues"
   },
-  "homepage": "https://github.com/osliki-foundation/osliki#readme",
+  "homepage": "https://github.com/osliki/osliki#readme",
   "dependencies": {
     "bignumber.js": "^6.0.0",
     "zeppelin-solidity": "^1.7.0"
