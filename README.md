@@ -1,6 +1,6 @@
 # Osliki
 
-Contracts are currently deployed on the test network Ethereum Ropsten. Test ether you can get [here](http://faucet.ropsten.be:3001/).
+Contracts are currently deployed on the test network Ethereum Ropsten. Test ethers are dispensed [here](http://faucet.ropsten.be:3001/).
 
 Addresses of contracts:
 
