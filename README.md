@@ -4,6 +4,7 @@ About the project:
 
 - ENG https://medium.com/@artod/rewriting-an-application-on-blockchain-b9944e5e2ec7
 - RUS https://habrahabr.ru/post/351398
+- Landing https://osliki.github.io
 
 Contracts are currently deployed on the test network Ethereum Ropsten. Test ethers are dispensed [here](http://faucet.ropsten.be:3001/). Addresses of contracts:
 
@@ -15,7 +16,8 @@ Contracts are currently deployed on the test network Ethereum Ropsten. Test ethe
 *   [Source Code on GitHub](https://github.com/osliki "Github")
 *   [Telegram Group](https://t.me/joinchat/Gu2JzkhJyDWBIwaruTSI4Q "Telegram Group Osliki")
 *   [Telegram Channel](https://t.me/osliki_channel "Telegram Channel Osliki")
-*   [Reddit /r/Osliki](https://t.me/osliki_channel "Reddit /r/Osliki")
+*   [Reddit /r/Osliki](https://www.reddit.com/r/Osliki/ "Reddit /r/Osliki")
 *   [Twitter](https://twitter.com/OslikiNet "Twitter Osliki")
-*   [BitcoinTalk (ENG)](https://bitcointalk.org/index.php?topic=3296322 "Twitter Osliki")
-*   [BitcoinTalk (RUS)](https://bitcointalk.org/index.php?topic=3178617 "Twitter Osliki")
+*   [BitcoinTalk (ENG)](https://bitcointalk.org/index.php?topic=3296322 "BitcoinTalk (ENG)")
+*   [BitcoinTalk (RUS)](https://bitcointalk.org/index.php?topic=3178617 "BitcoinTalk (RUS)")
+*   [BitcoinTalk (FR)](https://bitcointalk.org/index.php?topic=3206783 "BitcoinTalk (FR)")
