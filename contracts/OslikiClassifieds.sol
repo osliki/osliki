@@ -1,15 +1,15 @@
 pragma solidity ^0.4.23;
 
-import "./SafeMath.sol";
-import "./ERC20.sol";
-import "./SafeERC20.sol";
+import "../node_modules/zeppelin-solidity/contracts/math/SafeMath.sol";
+import "../node_modules/zeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "../node_modules/zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
 
 /**
  * @title Smart contract Osliki Classifieds
  *
  * @dev This is part of the Decentralized Osliki Platform (DOP).
  */
-contract Ads {
+contract OslikiClassifieds {
   using SafeMath for uint;
   using SafeERC20 for ERC20;
 
@@ -17,11 +17,11 @@ contract Ads {
   address public oslikiFoundation; // Osliki Foundation (OF) address
 
   uint public upPrice = 1 ether; // same decimals for OSLIK tokens
+  uint public reward = 1 ether; // same decimals for OSLIK tokens
 
   string[] public catsRegister;
   Ad[] public ads;
   Comment[] public comments;
-
 
   mapping (address => uint[]) internal byUsers;
   mapping (string => uint[]) internal byCats;
@@ -62,12 +62,6 @@ contract Ads {
     oslikiFoundation = _oslikiFoundation;
   }
 
-  function setUpPrice(uint newUpPrice) public {
-      require(msg.sender == oslikiFoundation);
-
-      upPrice = newUpPrice;
-  }
-
   function _addAd(
     uint catId,
     string text // format 'ipfs hash,ipfs hash...'
@@ -86,6 +80,17 @@ contract Ads {
     byCats[catsRegister[catId]].push(adId);
     byUsers[msg.sender].push(adId);
 
+    if (reward > 0 && oslikToken.allowance(oslikiFoundation, address(this)) >= reward) {
+      uint balanceOfBefore = oslikToken.balanceOf(oslikiFoundation);
+
+      oslikToken.safeTransferFrom(oslikiFoundation, msg.sender, reward);
+
+      uint balanceOfAfter = oslikToken.balanceOf(oslikiFoundation);
+      assert(balanceOfAfter == balanceOfBefore.sub(reward));
+
+      // emit EventReward(msg.sender, reward);
+    }
+
     // emit EventAddAd(msg.sender, cat, adId);
   }
 
@@ -96,7 +101,7 @@ contract Ads {
     _addAd(catId, text);
   }
 
-   function addAd(
+  function newCatWithAd(
     string newCat,
     string text // format 'ipfs hash,ipfs hash...'
   ) public {
@@ -120,7 +125,7 @@ contract Ads {
         ad.cat = cat;
     }*/
 
-    if (!compareStrings(ad.text, text)) {
+    if (!_compareStrings(ad.text, text)) {
         ad.text = text;
         ad.updatedAt = now;
     }
@@ -136,11 +141,7 @@ contract Ads {
 
     require(msg.sender == ad.user, "Sender not authorized.");
 
-    /*if (!compareStrings(ad.cat, cat)) {
-        ad.cat = cat;
-    }*/
-
-    if (!compareStrings(ad.text, text)) {
+    if (!_compareStrings(ad.text, text)) {
         ad.text = text;
         ad.updatedAt = now;
     }
@@ -156,7 +157,7 @@ contract Ads {
 
     require(msg.sender == comment.user, "Sender not authorized.");
 
-    if (!compareStrings(comment.text, text)) {
+    if (!_compareStrings(comment.text, text)) {
         comment.text = text;
         comment.updatedAt = now;
     }
@@ -181,7 +182,19 @@ contract Ads {
     assert(balanceOfAfter == balanceOfBefore.add(upPrice));
   }
 
-  function compareStrings (string a, string b) public pure returns (bool) {
+  function _setUpPrice(uint newUpPrice) public {
+    require(msg.sender == oslikiFoundation, "Sender not authorized.");
+
+    upPrice = newUpPrice;
+  }
+
+  function _changeOslikiFoundation(address newAddress) public {
+    require(msg.sender == oslikiFoundation, "Sender not authorized.");
+
+    oslikiFoundation = newAddress;
+  }
+
+  function _compareStrings(string a, string b) private pure returns (bool) {
    return keccak256(a) == keccak256(b);
   }
 

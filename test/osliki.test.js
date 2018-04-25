@@ -1,7 +1,7 @@
 const BigNumber = require('bignumber.js');
 
-const Osliki = artifacts.require('./Osliki.sol')
-const OslikToken = artifacts.require('./OslikToken.sol')
+const Osliki = artifacts.require('Osliki.sol')
+const OslikToken = artifacts.require('OslikToken.sol')
 
 const allBigNumberToNumber = (arr) => {
   return arr.map(el => (el.toNumber ? el.toNumber() : el))
