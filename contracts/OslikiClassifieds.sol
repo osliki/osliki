@@ -23,15 +23,15 @@ contract OslikiClassifieds {
   Ad[] public ads;
   Comment[] public comments;
 
-  mapping (address => uint[]) internal byUsers;
-  mapping (string => uint[]) internal byCats;
-      // cat name => exist?
-    // cat id = > ads[]
-    // getCat [catName, catId]
-  struct Category {
-    string name;
-    Ad[] ads;
-  }
+  mapping (address => uint[]) internal adsByUser;
+  mapping (string => uint[]) internal adsByCat;
+
+  event EventNewCategory(uint catId, string catName);
+  event EventNewAd(address indexed from, uint indexed catId, uint adId);
+  event EventEditAd(address indexed from, uint indexed catId, uint indexed adId);
+  event EventNewComment(address indexed from, uint indexed catId, uint indexed cmntId);
+  event EventUpAd(address indexed from, uint indexed catId, uint indexed adId);
+  event EventReward(address indexed to, uint reward);
 
   struct Ad {
     address user;
@@ -62,10 +62,10 @@ contract OslikiClassifieds {
     oslikiFoundation = _oslikiFoundation;
   }
 
-  function _addAd(
+  function _newAd(
     uint catId,
     string text // format 'ipfs hash,ipfs hash...'
-  ) private {
+  ) private returns (bool) {
     ads.push(Ad({
       user: msg.sender,
       catId: catId,
@@ -77,8 +77,8 @@ contract OslikiClassifieds {
 
     uint adId = ads.length - 1;
 
-    byCats[catsRegister[catId]].push(adId);
-    byUsers[msg.sender].push(adId);
+    adsByCat[catsRegister[catId]].push(adId);
+    adsByUser[msg.sender].push(adId);
 
     if (reward > 0 && oslikToken.allowance(oslikiFoundation, address(this)) >= reward) {
       uint balanceOfBefore = oslikToken.balanceOf(oslikiFoundation);
@@ -88,29 +88,34 @@ contract OslikiClassifieds {
       uint balanceOfAfter = oslikToken.balanceOf(oslikiFoundation);
       assert(balanceOfAfter == balanceOfBefore.sub(reward));
 
-      // emit EventReward(msg.sender, reward);
+      emit EventReward(msg.sender, reward);
     }
 
-    // emit EventAddAd(msg.sender, cat, adId);
+    emit EventNewAd(msg.sender, catId, adId);
+
+    return true;
   }
 
-  function addAd(
+  function newAd(
     uint catId,
     string text // format 'ipfs hash,ipfs hash...'
   ) public {
-    _addAd(catId, text);
+    assert(_newAd(catId, text));
   }
 
   function newCatWithAd(
-    string newCat,
+    string catName,
     string text // format 'ipfs hash,ipfs hash...'
   ) public {
 
-    require(byCats[newCat].length == 0, "This category already exists.");
+    require(adsByCat[catName].length == 0, "This category already exists.");
 
-    catsRegister.push(newCat);
+    catsRegister.push(catName);
     uint catId = catsRegister.length - 1;
-    _addAd(catId, text);
+
+    emit EventNewCategory(catId, catName);
+
+    assert(_newAd(catId, text));
   }
 
   function editAd(
@@ -121,48 +126,33 @@ contract OslikiClassifieds {
 
     require(msg.sender == ad.user, "Sender not authorized.");
 
-    /*if (!compareStrings(ad.cat, cat)) {
-        ad.cat = cat;
-    }*/
-
     if (!_compareStrings(ad.text, text)) {
         ad.text = text;
         ad.updatedAt = now;
     }
 
-    // emit EventEditAd(msg.sender, cat, adId);
+    emit EventEditAd(msg.sender, ad.catId, adId);
   }
 
-  function addComment(
+  function newComment(
     uint adId,
     string text
   ) public {
     Ad storage ad = ads[adId];
 
-    require(msg.sender == ad.user, "Sender not authorized.");
+    comments.push(Comment({
+      user: msg.sender,
+      adId: adId,
+      text: text,
+      createdAt: now,
+      updatedAt: now
+    }));
 
-    if (!_compareStrings(ad.text, text)) {
-        ad.text = text;
-        ad.updatedAt = now;
-    }
+    uint cmntId = comments.length - 1;
 
-    // emit EventEditAd(msg.sender, cat, adId);
-  }
+    ad.comments.push(cmntId);
 
-  function editComment(
-    uint commentId,
-    string text
-  ) public {
-    Comment storage comment = comments[commentId];
-
-    require(msg.sender == comment.user, "Sender not authorized.");
-
-    if (!_compareStrings(comment.text, text)) {
-        comment.text = text;
-        comment.updatedAt = now;
-    }
-
-    // emit EventEditComment(commentId, msg.sender);
+    emit EventNewComment(msg.sender, ad.catId, cmntId);
   }
 
   function upAd(
@@ -172,7 +162,7 @@ contract OslikiClassifieds {
 
     require(msg.sender == ad.user, "Sender not authorized.");
 
-    byCats[catsRegister[ad.catId]].push(adId);
+    adsByCat[catsRegister[ad.catId]].push(adId);
 
     uint balanceOfBefore = oslikToken.balanceOf(oslikiFoundation);
 
@@ -180,22 +170,82 @@ contract OslikiClassifieds {
 
     uint balanceOfAfter = oslikToken.balanceOf(oslikiFoundation);
     assert(balanceOfAfter == balanceOfBefore.add(upPrice));
+
+    emit EventUpAd(msg.sender, ad.catId, adId);
   }
 
-  function _setUpPrice(uint newUpPrice) public {
+  modifier onlyFoundation {
     require(msg.sender == oslikiFoundation, "Sender not authorized.");
+    _;
+  }
 
+  function _changeUpPrice(uint newUpPrice) public onlyFoundation {
     upPrice = newUpPrice;
   }
 
-  function _changeOslikiFoundation(address newAddress) public {
-    require(msg.sender == oslikiFoundation, "Sender not authorized.");
+  function _changeReward(uint newReward) public onlyFoundation {
+    reward = newReward;
+  }
 
+  function _changeOslikiFoundation(address newAddress) public onlyFoundation {
     oslikiFoundation = newAddress;
   }
 
   function _compareStrings(string a, string b) private pure returns (bool) {
    return keccak256(a) == keccak256(b);
   }
+
+
+  function getCatsCount() public view returns (uint) {
+    return catsRegister.length;
+  }
+
+  function getCommentsCount() public view returns (uint) {
+    return comments.length;
+  }
+
+  function getCommentsCountByAd(uint adId) public view returns (uint) {
+    return ads[adId].comments.length;
+  }
+
+  function getAllCommentsByAd(uint adId) public view returns (uint[]) {
+    return ads[adId].comments;
+  }
+
+  function getCommentByAd(uint adId, uint index) public view returns (uint) {
+    return ads[adId].comments[index];
+  }
+
+
+  function getAdsCount() public view returns (uint) {
+    return ads.length;
+  }
+
+
+  function getAdsCountByUser(address user) public view returns (uint) {
+    return adsByUser[user].length;
+  }
+
+  function getAdByUser(address user, uint index) public view returns (uint) {
+    return adsByUser[user][index];
+  }
+
+  function getAllAdsByUser(address user) public view returns (uint[]) {
+    return adsByUser[user];
+  }
+
+
+  function getAdsCountByCat(string catName) public view returns (uint) {
+    return adsByCat[catName].length;
+  }
+
+  function getAdByCat(string catName, uint index) public view returns (uint) {
+    return adsByCat[catName][index];
+  }
+
+  function getAllAdsByCat(string catName) public view returns (uint[]) {
+    return adsByCat[catName];
+  }
+
 
 }
