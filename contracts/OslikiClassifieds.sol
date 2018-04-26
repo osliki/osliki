@@ -29,7 +29,7 @@ contract OslikiClassifieds {
   event EventNewCategory(uint catId, string catName);
   event EventNewAd(address indexed from, uint indexed catId, uint adId);
   event EventEditAd(address indexed from, uint indexed catId, uint indexed adId);
-  event EventNewComment(address indexed from, uint indexed catId, uint indexed cmntId);
+  event EventNewComment(address indexed from, uint indexed catId, uint indexed adId, uint cmntId);
   event EventUpAd(address indexed from, uint indexed catId, uint indexed adId);
   event EventReward(address indexed to, uint reward);
 
@@ -66,6 +66,8 @@ contract OslikiClassifieds {
     uint catId,
     string text // format 'ipfs hash,ipfs hash...'
   ) private returns (bool) {
+    require(bytes(text).length != 0, "Text is empty");
+
     ads.push(Ad({
       user: msg.sender,
       catId: catId,
@@ -100,6 +102,8 @@ contract OslikiClassifieds {
     uint catId,
     string text // format 'ipfs hash,ipfs hash...'
   ) public {
+    require(catId < catsRegister.length, "Category not found");
+
     assert(_newAd(catId, text));
   }
 
@@ -107,8 +111,8 @@ contract OslikiClassifieds {
     string catName,
     string text // format 'ipfs hash,ipfs hash...'
   ) public {
-
-    require(adsByCat[catName].length == 0, "This category already exists.");
+    require(bytes(catName).length != 0, "Category is empty");
+    require(adsByCat[catName].length == 0, "Category already exists");
 
     catsRegister.push(catName);
     uint catId = catsRegister.length - 1;
@@ -122,14 +126,16 @@ contract OslikiClassifieds {
     uint adId,
     string text // format 'ipfs hash,ipfs hash...'
   ) public {
+    require(adId < ads.length, "Ad id not found");
+    require(bytes(text).length != 0, "Text is empty");
+
     Ad storage ad = ads[adId];
 
     require(msg.sender == ad.user, "Sender not authorized.");
+    require(!_stringsEqual(ad.text, text), "New text is the same");
 
-    if (!_compareStrings(ad.text, text)) {
-        ad.text = text;
-        ad.updatedAt = now;
-    }
+    ad.text = text;
+    ad.updatedAt = now;
 
     emit EventEditAd(msg.sender, ad.catId, adId);
   }
@@ -138,6 +144,9 @@ contract OslikiClassifieds {
     uint adId,
     string text
   ) public {
+    require(adId < ads.length, "Ad id not found");
+    require(bytes(text).length != 0, "Text is empty");
+
     Ad storage ad = ads[adId];
 
     comments.push(Comment({
@@ -152,21 +161,21 @@ contract OslikiClassifieds {
 
     ad.comments.push(cmntId);
 
-    emit EventNewComment(msg.sender, ad.catId, cmntId);
+    emit EventNewComment(msg.sender, ad.catId, adId, cmntId);
   }
 
   function upAd(
     uint adId
   ) public {
-    Ad memory ad = ads[adId];
+    require(adId < ads.length, "Ad id not found");
 
-    require(msg.sender == ad.user, "Sender not authorized.");
+    Ad memory ad = ads[adId];
 
     adsByCat[catsRegister[ad.catId]].push(adId);
 
     uint balanceOfBefore = oslikToken.balanceOf(oslikiFoundation);
 
-    oslikToken.safeTransferFrom(msg.sender, oslikiFoundation, upPrice);
+    oslikToken.transferFrom(msg.sender, oslikiFoundation, upPrice);
 
     uint balanceOfAfter = oslikToken.balanceOf(oslikiFoundation);
     assert(balanceOfAfter == balanceOfBefore.add(upPrice));
@@ -191,7 +200,7 @@ contract OslikiClassifieds {
     oslikiFoundation = newAddress;
   }
 
-  function _compareStrings(string a, string b) private pure returns (bool) {
+  function _stringsEqual(string a, string b) private pure returns (bool) {
    return keccak256(a) == keccak256(b);
   }
 
@@ -215,7 +224,7 @@ contract OslikiClassifieds {
   function getCommentByAd(uint adId, uint index) public view returns (uint) {
     return ads[adId].comments[index];
   }
-
+  
 
   function getAdsCount() public view returns (uint) {
     return ads.length;
@@ -247,5 +256,6 @@ contract OslikiClassifieds {
     return adsByCat[catName];
   }
 
-
 }
+
+// проверить returns struc в логах
