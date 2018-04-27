@@ -54,7 +54,6 @@ contract OslikiClassifieds {
     ERC20 _oslikToken,
     address _oslikiFoundation
   ) public {
-
     require(address(_oslikToken) != address(0), "_oslikToken is not assigned.");
     require(_oslikiFoundation != address(0), "_oslikiFoundation is not assigned.");
 
@@ -183,6 +182,10 @@ contract OslikiClassifieds {
     emit EventUpAd(msg.sender, ad.catId, adId);
   }
 
+  function _stringsEqual(string a, string b) private pure returns (bool) {
+   return keccak256(a) == keccak256(b);
+  }
+
   modifier onlyFoundation {
     require(msg.sender == oslikiFoundation, "Sender not authorized.");
     _;
@@ -197,11 +200,8 @@ contract OslikiClassifieds {
   }
 
   function _changeOslikiFoundation(address newAddress) public onlyFoundation {
+    require(newAddress != address(0));
     oslikiFoundation = newAddress;
-  }
-
-  function _stringsEqual(string a, string b) private pure returns (bool) {
-   return keccak256(a) == keccak256(b);
   }
 
 
@@ -217,14 +217,14 @@ contract OslikiClassifieds {
     return ads[adId].comments.length;
   }
 
-  function getAllCommentsByAd(uint adId) public view returns (uint[]) {
+  function getAllCommentIdsByAd(uint adId) public view returns (uint[]) {
     return ads[adId].comments;
   }
 
-  function getCommentByAd(uint adId, uint index) public view returns (uint) {
+  function getCommentIdByAd(uint adId, uint index) public view returns (uint) {
     return ads[adId].comments[index];
   }
-  
+
 
   function getAdsCount() public view returns (uint) {
     return ads.length;
@@ -235,25 +235,25 @@ contract OslikiClassifieds {
     return adsByUser[user].length;
   }
 
-  function getAdByUser(address user, uint index) public view returns (uint) {
+  function getAdIdByUser(address user, uint index) public view returns (uint) {
     return adsByUser[user][index];
   }
 
-  function getAllAdsByUser(address user) public view returns (uint[]) {
+  function getAllAdIdsByUser(address user) public view returns (uint[]) {
     return adsByUser[user];
   }
 
 
-  function getAdsCountByCat(string catName) public view returns (uint) {
-    return adsByCat[catName].length;
+  function getAdsCountByCat(uint catId) public view returns (uint) {
+    return adsByCat[catsRegister[catId]].length;
   }
 
-  function getAdByCat(string catName, uint index) public view returns (uint) {
-    return adsByCat[catName][index];
+  function getAdIdByCat(uint catId, uint index) public view returns (uint) {
+    return adsByCat[catsRegister[catId]][index];
   }
 
-  function getAllAdsByCat(string catName) public view returns (uint[]) {
-    return adsByCat[catName];
+  function getAllAdIdsByCat(uint catId) public view returns (uint[]) {
+    return adsByCat[catsRegister[catId]];
   }
 
 }

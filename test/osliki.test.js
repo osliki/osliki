@@ -66,7 +66,7 @@ contract('Osliki', accounts => {
     oslikTokenFounder = await oslikToken.founder()
     oslikiFoundation = await osliki.oslikiFoundation()
   })
-return
+
   it("should add new orders", async () => {
     const res0 = await osliki.addOrder(...mockOrders[0], {from: accounts[0]})
     const res1 = await osliki.addOrder(...mockOrders[1], {from: accounts[1]})

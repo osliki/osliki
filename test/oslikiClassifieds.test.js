@@ -128,7 +128,7 @@ contract('OslikiClassifieds', accounts => {
     )
   })
 
-  it("should add new comment", async () => {
+  it("should add new comments", async () => {
     await verifyThrows(async () => {
       await oslikiClassifieds.newComment(999, 'comment text', {from: accounts[2]}) // id not exist
     }, /revert/)
@@ -137,13 +137,14 @@ contract('OslikiClassifieds', accounts => {
       await oslikiClassifieds.newComment(1, '', {from: accounts[2]}) // text empty
     }, /revert/)
 
-    await oslikiClassifieds.newComment(1, 'comment text', {from: accounts[2]}) // not auth user
-    let res = await oslikiClassifieds.newComment(1, 'comment text2', {from: accounts[3]}) // not auth user
+    await oslikiClassifieds.newComment(1, 'comment text', {from: accounts[2]})
+    await oslikiClassifieds.newComment(0, 'comment text1', {from: accounts[3]})
+    let res = await oslikiClassifieds.newComment(1, 'comment text2', {from: accounts[3]})
 
     let args = findEvent('EventNewComment', res.logs).args
 
     assert.deepEqual([args.from, args.catId.toNumber(), args.adId.toNumber(), args.cmntId.toNumber()],
-      [accounts[3], 0, 1, 1], "EventNewComment log incorrect"
+      [accounts[3], 0, 1, 2], "EventNewComment log incorrect"
     )
   })
 
@@ -214,6 +215,10 @@ contract('OslikiClassifieds', accounts => {
       await oslikiClassifieds._changeOslikiFoundation('0x02', {from: accounts[1]});
     }, /revert/);
 
+    await verifyThrows(async () => {
+      await oslikiClassifieds._changeOslikiFoundation('0x0', {from: oslikiFoundation});
+    }, /revert/);
+
     await oslikiClassifieds._changeOslikiFoundation('0x02', {from: oslikiFoundation});
 
     const res = await oslikiClassifieds.oslikiFoundation();
@@ -221,10 +226,104 @@ contract('OslikiClassifieds', accounts => {
     assert.equal(res, 0x0000000000000000000000000000000000000002, "OslikiFoundation isn't correct");
   })
 
-})
+  it("should get count of categories", async () => {
+    const count = await oslikiClassifieds.getCatsCount()
+    assert.equal(count.toNumber(), 2, "count of categories wasn't correct")
+  })
 
-/*
-assert.equal(findEvent('EventRefund', res.logs).args.invoiceId.toNumber(),
-      invoiceId,
-      "EventRefund invoiceId wasn't " + invoiceId)
-*/
+
+  /* GETTERS */
+  it("should get count of comments", async () => {
+    const count = await oslikiClassifieds.getCommentsCount()
+    assert.equal(count.toNumber(), 3, "count of comments wasn't correct")
+  })
+
+  it("should get count of comments by adId", async () => {
+    const count0 = await oslikiClassifieds.getCommentsCountByAd(0)
+    const count1 = await oslikiClassifieds.getCommentsCountByAd(1)
+    const count3 = await oslikiClassifieds.getCommentsCountByAd(3)
+
+    assert.equal(count0.toNumber(), 1, "count of comments for adId=0 wasn't correct")
+    assert.equal(count1.toNumber(), 2, "count of comments for adId=1 wasn't correct")
+    assert.equal(count3.toNumber(), 0, "count of comments for adId=3 wasn't correct")
+  })
+
+  it("should get all comment ids by ad", async () => {
+    const cmntIds = await oslikiClassifieds.getAllCommentIdsByAd(1)
+    assert.deepEqual(allBigNumberToNumber(cmntIds), [0, 2], "comments id wasn't correct")
+  })
+
+  it("should get comment id by adId and index", async () => {
+    const cmntId = await oslikiClassifieds.getCommentIdByAd(1, 1)
+    assert.deepEqual(cmntId.toNumber(), 2, "comment id wasn't correct")
+  })
+
+  it("should get count of ads", async () => {
+    const count = await oslikiClassifieds.getAdsCount()
+    assert.equal(count.toNumber(), 4, "count of ads wasn't correct")
+  })
+
+  it("should get count of ads", async () => {
+    const [count0, count1, count5, count7] = await Promise.all([
+      oslikiClassifieds.getAdsCountByUser(accounts[0]),
+      oslikiClassifieds.getAdsCountByUser(accounts[1]),
+      oslikiClassifieds.getAdsCountByUser(accounts[5]),
+      oslikiClassifieds.getAdsCountByUser(accounts[7]),
+    ])
+
+    assert.equal(count0.toNumber(), 0, "count of ads0 wasn't correct")
+    assert.equal(count1.toNumber(), 1, "count of ads1 wasn't correct")
+    assert.equal(count5.toNumber(), 1, "count of ads5 wasn't correct")
+    assert.equal(count7.toNumber(), 2, "count of ads7 wasn't correct")
+  })
+
+  it("should get ad id by user", async () => {
+    const adId = await oslikiClassifieds.getAdIdByUser(accounts[7], 1)
+
+    assert.equal(adId.toNumber(), 3, "adId wasn't correct")
+  })
+
+  it("should get all ad ids by user", async () => {
+    const adIds = await oslikiClassifieds.getAllAdIdsByUser(accounts[7])
+
+    assert.deepEqual(allBigNumberToNumber(adIds), [2, 3], "adIds wasn't correct")
+  })
+
+  it("should get count of ads by catId", async () => {
+    const count = await oslikiClassifieds.getAdsCountByCat(1)
+    assert.equal(count.toNumber(), 2, "count of ads wasn't correct")
+  })
+
+  it("should get ad id by user", async () => {
+    const adId = await oslikiClassifieds.getAdIdByCat(1, 1)
+
+    assert.equal(adId.toNumber(), 3, "adId wasn't correct")
+  })
+
+  it("should get all ad ids by cat", async () => {
+    const adIds = await oslikiClassifieds.getAllAdIdsByCat(1)
+
+    assert.deepEqual(allBigNumberToNumber(adIds), [2, 3], "adIds wasn't correct")
+  })
+
+  it("should get cat name by id", async () => {
+    const catName = await oslikiClassifieds.catsRegister(1)
+
+    assert.equal(catName, 'Second category', "Cat name wasn't correct")
+  })
+
+  it("should get ad by id", async () => {
+    const ad = await oslikiClassifieds.ads(1)
+
+    ad.splice(3)
+    assert.deepEqual(allBigNumberToNumber(ad), [accounts[5], 0, "edited text"], "Ad wasn't correct")
+  })
+
+  it("should get comment by id", async () => {
+    const cmnt = await oslikiClassifieds.comments(1)
+
+    cmnt.splice(3)
+    assert.deepEqual(allBigNumberToNumber(cmnt), [accounts[3], 0, "comment text1"], "Cmnt wasn't correct")
+  })
+
+})
