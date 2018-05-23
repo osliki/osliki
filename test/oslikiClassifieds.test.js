@@ -161,6 +161,7 @@ contract('OslikiClassifieds', accounts => {
     await oslikToken.approve(oslikiClassifieds.address, web3.toWei(10, 'ether'), {from: accounts[1]})
 
     await verifyThrows(async () => {await oslikiClassifieds.upAd(999, {from: accounts[1]})}, /revert/)
+    await verifyThrows(async () => {await oslikiClassifieds.upAd(0, {from: accounts[2]})}, /revert/)
 
     let res = await oslikiClassifieds.upAd(0, {from: accounts[1]})
 

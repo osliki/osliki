@@ -6,7 +6,7 @@ const fs = require('fs')
 module.exports = async (deployer, network, accounts) => {
   const oslikiFoundation = accounts[0]
 
-  await deployer.deploy(OslikToken)
+  await deployer.deploy(OslikToken, oslikiFoundation)
   await deployer.deploy(Osliki, OslikToken.address, oslikiFoundation)
   await deployer.deploy(OslikiClassifieds, OslikToken.address, oslikiFoundation)
 

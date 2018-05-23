@@ -17,7 +17,7 @@ contract OslikiClassifieds {
   address public oslikiFoundation; // Osliki Foundation (OF) address
 
   uint public upPrice = 1 ether; // same decimals for OSLIK tokens
-  uint public reward = 1 ether; // same decimals for OSLIK tokens
+  uint public reward = 20 ether; // same decimals for OSLIK tokens
 
   string[] public catsRegister;
   Ad[] public ads;
@@ -47,7 +47,6 @@ contract OslikiClassifieds {
     uint adId;
     string text;
     uint createdAt;
-    uint updatedAt;
   }
 
   constructor(
@@ -81,15 +80,17 @@ contract OslikiClassifieds {
     adsByCat[catsRegister[catId]].push(adId);
     adsByUser[msg.sender].push(adId);
 
-    if (reward > 0 && oslikToken.allowance(oslikiFoundation, address(this)) >= reward) {
+    if (adsByUser[msg.sender].length == 1 && reward > 0 && oslikToken.allowance(oslikiFoundation, address(this)) >= reward) {
       uint balanceOfBefore = oslikToken.balanceOf(oslikiFoundation);
 
-      oslikToken.safeTransferFrom(oslikiFoundation, msg.sender, reward);
+      if (balanceOfBefore >= reward) {
+        oslikToken.safeTransferFrom(oslikiFoundation, msg.sender, reward);
 
-      uint balanceOfAfter = oslikToken.balanceOf(oslikiFoundation);
-      assert(balanceOfAfter == balanceOfBefore.sub(reward));
+        uint balanceOfAfter = oslikToken.balanceOf(oslikiFoundation);
+        assert(balanceOfAfter == balanceOfBefore.sub(reward));
 
-      emit EventReward(msg.sender, reward);
+        emit EventReward(msg.sender, reward);
+      }
     }
 
     emit EventNewAd(msg.sender, catId, adId);
@@ -131,7 +132,7 @@ contract OslikiClassifieds {
     Ad storage ad = ads[adId];
 
     require(msg.sender == ad.user, "Sender not authorized.");
-    require(!_stringsEqual(ad.text, text), "New text is the same");
+    //require(!_stringsEqual(ad.text, text), "New text is the same");
 
     ad.text = text;
     ad.updatedAt = now;
@@ -152,8 +153,7 @@ contract OslikiClassifieds {
       user: msg.sender,
       adId: adId,
       text: text,
-      createdAt: now,
-      updatedAt: now
+      createdAt: now
     }));
 
     uint cmntId = comments.length - 1;
@@ -170,11 +170,13 @@ contract OslikiClassifieds {
 
     Ad memory ad = ads[adId];
 
+    require(msg.sender == ad.user, "Sender not authorized.");
+
     adsByCat[catsRegister[ad.catId]].push(adId);
 
     uint balanceOfBefore = oslikToken.balanceOf(oslikiFoundation);
 
-    oslikToken.transferFrom(msg.sender, oslikiFoundation, upPrice);
+    oslikToken.safeTransferFrom(msg.sender, oslikiFoundation, upPrice);
 
     uint balanceOfAfter = oslikToken.balanceOf(oslikiFoundation);
     assert(balanceOfAfter == balanceOfBefore.add(upPrice));
@@ -182,9 +184,9 @@ contract OslikiClassifieds {
     emit EventUpAd(msg.sender, ad.catId, adId);
   }
 
-  function _stringsEqual(string a, string b) private pure returns (bool) {
+  /*function _stringsEqual(string a, string b) private pure returns (bool) {
    return keccak256(a) == keccak256(b);
-  }
+  }*/
 
   modifier onlyFoundation {
     require(msg.sender == oslikiFoundation, "Sender not authorized.");

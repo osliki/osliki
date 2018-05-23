@@ -22,9 +22,11 @@ contract OslikToken is StandardToken, BurnableToken {
   /**
    * @dev Constructor that gives msg.sender all of existing tokens.
    */
-  function OslikToken() public {
+  constructor(address _oslikiFoundation) public {
+    require(_oslikiFoundation != address(0), "_oslikiFoundation is not assigned.");
+
     totalSupply_ = INITIAL_SUPPLY;
-    founder = msg.sender;
+    founder = _oslikiFoundation;
     balances[founder] = INITIAL_SUPPLY;
     emit Transfer(0x0, founder, INITIAL_SUPPLY);
   }
