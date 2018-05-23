@@ -1,7 +1,6 @@
-pragma solidity ^0.4.21;
+pragma solidity ^0.4.24;
 
-import '../node_modules/zeppelin-solidity/contracts/token/ERC20/StandardToken.sol';
-import '../node_modules/zeppelin-solidity/contracts/token/ERC20/BurnableToken.sol';
+import '../node_modules/zeppelin-solidity/contracts/token/ERC20/StandardBurnableToken.sol';
 
 /**
  * @title OslikToken
@@ -9,7 +8,7 @@ import '../node_modules/zeppelin-solidity/contracts/token/ERC20/BurnableToken.so
  * Note they can later distribute these tokens as they wish using `transfer` and other
  * `StandardToken` functions.
  */
-contract OslikToken is StandardToken, BurnableToken {
+contract OslikToken is StandardBurnableToken {
 
   string public constant name = 'Osliki Token'; // solium-disable-line uppercase
   string public constant symbol = 'OSLIK'; // solium-disable-line uppercase
