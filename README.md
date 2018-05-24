@@ -16,7 +16,7 @@ Contracts are currently deployed on the test network Ethereum Ropsten. Test ethe
 
 
 
-## Osliki Classifieds — Distributed Classifieds
+## Osliki Classifieds — Decentralized Bulletin Board
 
 [Osliki Classifieds](https://osliki.github.io/classi) is a Decentralized Classified Advertising Application powered by Ethereum blockchain and IPFS.
 
